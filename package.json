@@ -1,0 +1,28 @@
+{
+  "name": "check-shorts",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Detect unintended shorts between named nets",
+  "module": "lib/index.ts",
+  "files": [
+    "lib"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tscircuit/check-shorts"
+  },
+  "scripts": {
+    "test": "bun test --pass-with-no-tests",
+    "typecheck": "bunx tsc --noEmit",
+    "format": "biome format --write .",
+    "format:check": "biome format ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.4",
+    "@types/bun": "latest",
+    "typescript": "^5.9.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
