@@ -12,8 +12,8 @@
     "url": "https://github.com/tscircuit/check-shorts"
   },
   "scripts": {
-    "test": "bun test --pass-with-no-tests",
-    "typecheck": "bunx tsc --noEmit",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
     "format": "biome format --write .",
     "format:check": "biome format ."
   },
