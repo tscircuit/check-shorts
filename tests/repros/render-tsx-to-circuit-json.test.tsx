@@ -20,12 +20,17 @@ test("renders a TSX repro to Circuit JSON and PCB snapshot", async () => {
     true,
   );
   expect(
-    writeOrCompareBitmapSnapshot(import.meta.path, "pcb-bitmap", circuitJson, {
-      mode: "pcb",
-    }),
+    await writeOrCompareBitmapSnapshot(
+      import.meta.path,
+      "pcb-bitmap",
+      circuitJson,
+      {
+        mode: "pcb",
+      },
+    ),
   ).toEqual([]);
   expect(
-    writeOrCompareBitmapSnapshot(
+    await writeOrCompareBitmapSnapshot(
       import.meta.path,
       "gerber-bitmap",
       circuitJson,

@@ -26,13 +26,13 @@ test("renders a copper bridge short candidate PCB snapshot", async () => {
     ),
   ).toBe(true);
   expect(pcbTraces.length).toBeGreaterThanOrEqual(2);
-  const pcbShorts = writeOrCompareBitmapSnapshot(
+  const pcbShorts = await writeOrCompareBitmapSnapshot(
     import.meta.path,
     "pcb-bitmap",
     bridgedCircuitJson,
     { mode: "pcb" },
   );
-  const gerberShorts = writeOrCompareBitmapSnapshot(
+  const gerberShorts = await writeOrCompareBitmapSnapshot(
     import.meta.path,
     "gerber-bitmap",
     bridgedCircuitJson,

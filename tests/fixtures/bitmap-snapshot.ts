@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import looksSame from "@tscircuit/image-utils/looks-same";
 import {
   appendBitmapLegend,
   encodeRgbaPng,
@@ -47,7 +48,7 @@ export const writeOrCompareBinarySnapshot = (
   testPath: string,
   snapshotSuffix: string,
   bytes: Uint8Array,
-) => {
+): Promise<void> | void => {
   const { snapshotDir, snapshotPath } = getSnapshotPath(
     testPath,
     snapshotSuffix,
@@ -57,24 +58,27 @@ export const writeOrCompareBinarySnapshot = (
   mkdirSync(snapshotDir, { recursive: true });
 
   if (!Bun.env.BUN_UPDATE_SNAPSHOTS) {
-    expect(Buffer.compare(readFileSync(snapshotPath), Buffer.from(bytes))).toBe(
-      0,
-    );
-    return;
+    return looksSame(readFileSync(snapshotPath), bytes, {
+      strict: true,
+      ignoreAntialiasing: false,
+      ignoreCaret: false,
+    }).then((result) => {
+      expect(result.equal).toBe(true);
+    });
   }
 
   writeFileSync(snapshotPath, bytes);
 };
 
-export const writeOrCompareBitmapSnapshot = (
+export const writeOrCompareBitmapSnapshot = async (
   testPath: string,
   snapshotSuffix: string,
   circuitJson: AnyCircuitElement[],
   options: FindBitmapShortsOptions,
-): BitmapShort[] => {
-  const debugRender = renderBitmapShortDebug(circuitJson, options);
+): Promise<BitmapShort[]> => {
+  const debugRender = await renderBitmapShortDebug(circuitJson, options);
 
-  writeOrCompareBinarySnapshot(
+  await writeOrCompareBinarySnapshot(
     testPath,
     snapshotSuffix,
     encodeRgbaPng(appendBitmapLegend(debugRender)),

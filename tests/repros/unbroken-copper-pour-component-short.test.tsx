@@ -35,19 +35,23 @@ test("renders a same-net copper pour touch with its source trace filtered out", 
 
   expect(filteredCircuitJson.length).toBe(circuitJson.length - 1);
   expect(
-    writeOrCompareBitmapSnapshot(
-      import.meta.path,
-      "pcb-bitmap",
-      filteredCircuitJson,
-      { mode: "pcb" },
+    (
+      await writeOrCompareBitmapSnapshot(
+        import.meta.path,
+        "pcb-bitmap",
+        filteredCircuitJson,
+        { mode: "pcb" },
+      )
     ).length,
   ).toBe(1);
   expect(
-    writeOrCompareBitmapSnapshot(
-      import.meta.path,
-      "gerber-bitmap",
-      filteredCircuitJson,
-      { mode: "gerber" },
+    (
+      await writeOrCompareBitmapSnapshot(
+        import.meta.path,
+        "gerber-bitmap",
+        filteredCircuitJson,
+        { mode: "gerber" },
+      )
     ).length,
   ).toBe(1);
   await expect(filteredCircuitJson).toMatchPcbSnapshot(import.meta.path);

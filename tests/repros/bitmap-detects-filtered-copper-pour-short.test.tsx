@@ -32,7 +32,7 @@ test("bitmap coloring ignores same-net copper pour contact", async () => {
   addCopperPourTouchingTestpoint(circuit);
   await circuit.renderUntilSettled();
 
-  const shorts = findBitmapShorts(circuit.getCircuitJson());
+  const shorts = await findBitmapShorts(circuit.getCircuitJson());
 
   expect(shorts).toEqual([]);
 });
@@ -50,13 +50,13 @@ test("bitmap coloring detects filtered-source-trace copper pour short", async ()
         element.display_name === ".TP_SHORT > .pin1 to net.GND"
       ),
   );
-  const pcbShorts = writeOrCompareBitmapSnapshot(
+  const pcbShorts = await writeOrCompareBitmapSnapshot(
     import.meta.path,
     "pcb-bitmap",
     filteredCircuitJson,
     { mode: "pcb" },
   );
-  const gerberShorts = writeOrCompareBitmapSnapshot(
+  const gerberShorts = await writeOrCompareBitmapSnapshot(
     import.meta.path,
     "gerber-bitmap",
     filteredCircuitJson,
