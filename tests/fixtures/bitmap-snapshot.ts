@@ -1,0 +1,88 @@
+import { expect } from "bun:test";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
+import looksSame from "@tscircuit/image-utils/looks-same";
+import {
+  appendBitmapLegend,
+  encodeRgbaPng,
+  renderBitmapShortDebug,
+} from "lib/index";
+import type { BitmapShort, FindBitmapShortsOptions } from "lib/index";
+import type { AnyCircuitElement } from "circuit-json";
+
+const getSnapshotPath = (
+  testPath: string,
+  snapshotSuffix: string,
+  extension: "png" | "svg",
+) => {
+  const normalizedTestPath = testPath.replace(/\.test\.tsx?$/, "");
+  const snapshotDir = join(dirname(normalizedTestPath), "__snapshots__");
+
+  return {
+    snapshotDir,
+    snapshotPath: join(
+      snapshotDir,
+      `${basename(normalizedTestPath)}-${snapshotSuffix}.snap.${extension}`,
+    ),
+  };
+};
+
+export const writeOrCompareSvgSnapshot = (testPath: string, svg: string) => {
+  const { snapshotDir, snapshotPath } = getSnapshotPath(
+    testPath,
+    "short-debug",
+    "svg",
+  );
+
+  mkdirSync(snapshotDir, { recursive: true });
+
+  if (!Bun.env.BUN_UPDATE_SNAPSHOTS) {
+    expect(readFileSync(snapshotPath, "utf8")).toBe(svg);
+    return;
+  }
+
+  writeFileSync(snapshotPath, svg);
+};
+
+export const writeOrCompareBinarySnapshot = (
+  testPath: string,
+  snapshotSuffix: string,
+  bytes: Uint8Array,
+): Promise<void> | void => {
+  const { snapshotDir, snapshotPath } = getSnapshotPath(
+    testPath,
+    snapshotSuffix,
+    "png",
+  );
+
+  mkdirSync(snapshotDir, { recursive: true });
+
+  if (!Bun.env.BUN_UPDATE_SNAPSHOTS) {
+    return looksSame(readFileSync(snapshotPath), bytes, {
+      strict: true,
+      ignoreAntialiasing: false,
+      ignoreCaret: false,
+    }).then((result) => {
+      expect(result.equal).toBe(true);
+    });
+  }
+
+  writeFileSync(snapshotPath, bytes);
+};
+
+export const writeOrCompareBitmapSnapshot = async (
+  testPath: string,
+  snapshotSuffix: string,
+  circuitJson: AnyCircuitElement[],
+  options: FindBitmapShortsOptions,
+): Promise<BitmapShort[]> => {
+  const debugRender = await renderBitmapShortDebug(circuitJson, options);
+
+  await writeOrCompareBinarySnapshot(
+    testPath,
+    snapshotSuffix,
+    encodeRgbaPng(appendBitmapLegend(debugRender)),
+  );
+
+  return debugRender.shorts;
+};
