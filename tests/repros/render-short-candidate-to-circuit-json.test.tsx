@@ -46,7 +46,7 @@ test("renders a copper bridge short candidate PCB snapshot", async () => {
       short.secondOwnerLabels.includes("pcb_trace_short_bridge"),
     ),
   ).toBe(true);
-  writeOrCompareSvgSnapshot(
+  await writeOrCompareSvgSnapshot(
     import.meta.path,
     createShortDebugSvg(bridgedCircuitJson, [...pcbShorts, ...gerberShorts]),
   );

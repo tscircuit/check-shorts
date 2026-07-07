@@ -79,5 +79,5 @@ test("bitmap coloring detects filtered-source-trace copper pour short", async ()
       ]),
     ].sort(),
   ).toEqual(["TP_SHORT.pin1", "copperpour:GND"]);
-  writeOrCompareSvgSnapshot(import.meta.path, debugSvg);
+  await writeOrCompareSvgSnapshot(import.meta.path, debugSvg);
 });

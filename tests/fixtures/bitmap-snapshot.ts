@@ -7,6 +7,7 @@ import {
   encodeRgbaPng,
   renderBitmapShortDebug,
 } from "lib/index";
+import { renderSvgToPng } from "lib/svg-to-png";
 import type { BitmapShort, FindBitmapShortsOptions } from "lib/index";
 import type { AnyCircuitElement } from "circuit-json";
 
@@ -27,7 +28,10 @@ const getSnapshotPath = (
   };
 };
 
-export const writeOrCompareSvgSnapshot = (testPath: string, svg: string) => {
+export const writeOrCompareSvgSnapshot = async (
+  testPath: string,
+  svg: string,
+) => {
   const { snapshotDir, snapshotPath } = getSnapshotPath(
     testPath,
     "short-debug",
@@ -37,7 +41,16 @@ export const writeOrCompareSvgSnapshot = (testPath: string, svg: string) => {
   mkdirSync(snapshotDir, { recursive: true });
 
   if (!Bun.env.BUN_UPDATE_SNAPSHOTS) {
-    expect(readFileSync(snapshotPath, "utf8")).toBe(svg);
+    const result = await looksSame(
+      renderSvgToPng(readFileSync(snapshotPath, "utf8")),
+      renderSvgToPng(svg),
+      {
+        strict: true,
+        ignoreAntialiasing: false,
+        ignoreCaret: false,
+      },
+    );
+    expect(result.equal).toBe(true);
     return;
   }
 
