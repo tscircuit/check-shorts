@@ -1,16 +1,29 @@
 {
   "name": "check-shorts",
   "version": "0.0.1",
+  "license": "MIT",
   "type": "module",
   "description": "Detect unintended shorts between named nets",
+  "main": "lib/index.ts",
   "module": "lib/index.ts",
+  "types": "lib/index.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.ts",
+      "import": "./lib/index.ts"
+    }
+  },
   "files": [
     "lib"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/tscircuit/check-shorts"
+    "url": "git+https://github.com/tscircuit/check-shorts.git"
   },
+  "bugs": {
+    "url": "https://github.com/tscircuit/check-shorts/issues"
+  },
+  "homepage": "https://github.com/tscircuit/check-shorts#readme",
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
