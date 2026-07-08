@@ -1,4 +1,7 @@
-import { cju } from "@tscircuit/circuit-json-util";
+import {
+  cju,
+  getBoardBounds as getPcbBoardBounds,
+} from "@tscircuit/circuit-json-util";
 import type { Bounds } from "@tscircuit/math-utils";
 import type { AnyCircuitElement } from "circuit-json";
 
@@ -9,16 +12,7 @@ export const getBoardBounds = (circuitJson: AnyCircuitElement[]): Bounds => {
     return { minX: -10, maxX: 10, minY: -10, maxY: 10 };
   }
 
-  const center = board.center ?? { x: 0, y: 0 };
-  const width = board.width ?? 20;
-  const height = board.height ?? 20;
-
-  return {
-    minX: center.x - width / 2,
-    maxX: center.x + width / 2,
-    minY: center.y - height / 2,
-    maxY: center.y + height / 2,
-  };
+  return getPcbBoardBounds(board);
 };
 
 export const getRealPointFromPixel = ({
