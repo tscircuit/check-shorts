@@ -2,6 +2,12 @@
 
 Detect unintended shorts between named nets.
 
+## Installation
+
+```bash
+bun add -D https://jscdn.tscircuit.com/@tscircuit/check-shorts
+```
+
 ## Development
 
 ```bash

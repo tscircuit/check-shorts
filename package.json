@@ -1,5 +1,5 @@
 {
-  "name": "check-shorts",
+  "name": "@tscircuit/check-shorts",
   "version": "0.0.1",
   "license": "MIT",
   "type": "module",
@@ -16,6 +16,9 @@
   "files": [
     "lib"
   ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tscircuit/check-shorts.git"
@@ -25,6 +28,7 @@
   },
   "homepage": "https://github.com/tscircuit/check-shorts#readme",
   "scripts": {
+    "build": "bun run typecheck",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",
