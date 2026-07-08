@@ -18,10 +18,12 @@ const shouldForceUpdateSnapshots = () =>
 
 async function savePcbSvgSnapshot({
   circuitJson,
+  content,
   testPath,
   options,
 }: {
-  circuitJson: AnyCircuitElement[];
+  circuitJson?: AnyCircuitElement[];
+  content?: string;
   testPath: string;
   options?: Parameters<typeof convertCircuitJsonToPcbSvg>[1];
 }): Promise<MatcherResult> {
@@ -32,23 +34,32 @@ async function savePcbSvgSnapshot({
   );
   const snapshotName = `${path.basename(normalizedTestPath)}-pcb.snap.svg`;
   const filePath = path.join(snapshotDir, snapshotName);
-  const content = convertCircuitJsonToPcbSvg(circuitJson, options ?? {});
+  const snapshotContent =
+    content ?? convertCircuitJsonToPcbSvg(circuitJson ?? [], options ?? {});
 
   if (!fs.existsSync(snapshotDir)) {
     fs.mkdirSync(snapshotDir, { recursive: true });
   }
 
-  if (!fs.existsSync(filePath) || shouldForceUpdateSnapshots()) {
-    console.log("Creating snapshot at", filePath);
-    fs.writeFileSync(filePath, content);
+  if (
+    !fs.existsSync(filePath) ||
+    shouldForceUpdateSnapshots() ||
+    shouldUpdateSnapshots()
+  ) {
+    console.log(
+      fs.existsSync(filePath)
+        ? `Updating snapshot at ${filePath}`
+        : `Creating snapshot at ${filePath}`,
+    );
+    fs.writeFileSync(filePath, snapshotContent);
     return {
-      message: () => `Snapshot created at ${filePath}`,
+      message: () => `Snapshot written at ${filePath}`,
       pass: true,
     };
   }
 
   const existingSnapshot = fs.readFileSync(filePath);
-  const currentBuffer = Buffer.from(content);
+  const currentBuffer = Buffer.from(snapshotContent);
   const result = await looksSame(currentBuffer, existingSnapshot, {
     strict: false,
     tolerance: 2,
@@ -57,15 +68,6 @@ async function savePcbSvgSnapshot({
   if (result.equal) {
     return {
       message: () => "Snapshot matches",
-      pass: true,
-    };
-  }
-
-  if (shouldUpdateSnapshots()) {
-    console.log("Updating snapshot at", filePath);
-    fs.writeFileSync(filePath, content);
-    return {
-      message: () => `Snapshot updated at ${filePath}`,
       pass: true,
     };
   }
@@ -92,6 +94,14 @@ expect.extend({
     options?: Parameters<typeof convertCircuitJsonToPcbSvg>[1],
   ): Promise<MatcherResult> {
     let circuitJson: AnyCircuitElement[];
+
+    if (typeof received === "string") {
+      return savePcbSvgSnapshot({
+        content: received,
+        testPath,
+        options,
+      });
+    }
 
     if (received instanceof RootCircuit) {
       await received.renderUntilSettled();

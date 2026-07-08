@@ -1,21 +1,101 @@
 import { convertCircuitJsonToPcbSvg } from "circuit-to-svg";
 import type { AnyCircuitElement } from "circuit-json";
-import { cju } from "@tscircuit/circuit-json-util";
 import type { BitmapShort } from "./bitmap-short-detector";
+
+interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface BoardBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+const getNumberAttribute = (
+  svgElement: string,
+  name: string,
+): number | null => {
+  const match = svgElement.match(new RegExp(`(?:^|\\s)${name}="([^"]+)"`));
+  if (!match?.[1]) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+};
+
+const getPcbBoundaryRect = (svg: string): Rect | null => {
+  const match = svg.match(/<rect\b[^>]*class="pcb-boundary"[^>]*>/);
+  const element = match?.[0];
+  if (!element) return null;
+
+  const x = getNumberAttribute(element, "x");
+  const y = getNumberAttribute(element, "y");
+  const width = getNumberAttribute(element, "width");
+  const height = getNumberAttribute(element, "height");
+  if (x === null || y === null || width === null || height === null) {
+    return null;
+  }
+
+  return { x, y, width, height };
+};
+
+const getBoardBounds = (circuitJson: AnyCircuitElement[]): BoardBounds => {
+  const board = circuitJson.find((element) => element.type === "pcb_board");
+  const outline = board?.outline ?? [];
+
+  if (outline.length > 0) {
+    return {
+      minX: Math.min(...outline.map((point) => point.x)),
+      maxX: Math.max(...outline.map((point) => point.x)),
+      minY: Math.min(...outline.map((point) => point.y)),
+      maxY: Math.max(...outline.map((point) => point.y)),
+    };
+  }
+
+  const center = board?.center ?? { x: 0, y: 0 };
+  const width = board?.width ?? 20;
+  const height = board?.height ?? 20;
+  return {
+    minX: center.x - width / 2,
+    maxX: center.x + width / 2,
+    minY: center.y - height / 2,
+    maxY: center.y + height / 2,
+  };
+};
 
 const getSvgPoint = (
   circuitJson: AnyCircuitElement[],
+  baseSvg: string,
   point: { x: number; y: number },
 ): { x: number; y: number } => {
-  const board = cju(circuitJson).pcb_board.list()[0];
-  const center = board?.center ?? { x: 0, y: 0 };
-  const boardWidth = board?.width ?? 20;
-  const boardHeight = board?.height ?? 20;
-  const scale = Math.min(700 / boardWidth, 500 / boardHeight);
+  const bounds = getBoardBounds(circuitJson);
+  const rect = getPcbBoundaryRect(baseSvg);
+
+  if (!rect) {
+    const boardWidth = bounds.maxX - bounds.minX;
+    const boardHeight = bounds.maxY - bounds.minY;
+    const scale = Math.min(700 / boardWidth, 500 / boardHeight);
+    const center = {
+      x: (bounds.minX + bounds.maxX) / 2,
+      y: (bounds.minY + bounds.maxY) / 2,
+    };
+
+    return {
+      x: 400 + (point.x - center.x) * scale,
+      y: 300 - (point.y - center.y) * scale,
+    };
+  }
 
   return {
-    x: 400 + (point.x - center.x) * scale,
-    y: 300 - (point.y - center.y) * scale,
+    x:
+      rect.x +
+      ((point.x - bounds.minX) / (bounds.maxX - bounds.minX)) * rect.width,
+    y:
+      rect.y +
+      ((bounds.maxY - point.y) / (bounds.maxY - bounds.minY)) * rect.height,
   };
 };
 
@@ -26,11 +106,20 @@ const escapeXml = (value: string): string =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
+const shortMarkerStroke = "#9b5cff";
+
 export const createShortDebugSvg = (
   circuitJson: AnyCircuitElement[],
   shorts: BitmapShort[],
+  options: { layer?: "top" | "bottom" } = {},
 ): string => {
-  const baseSvg = convertCircuitJsonToPcbSvg(circuitJson);
+  const shortLayers = new Set(shorts.map((short) => short.layer));
+  const layer =
+    options.layer ??
+    (shortLayers.size === 1
+      ? ([...shortLayers][0] as "top" | "bottom")
+      : undefined);
+  const baseSvg = convertCircuitJsonToPcbSvg(circuitJson, { layer });
   const seenShortCenters = new Set<string>();
   const overlays = shorts
     .filter((short) => {
@@ -40,18 +129,18 @@ export const createShortDebugSvg = (
       return true;
     })
     .map((short, index) => {
-      const point = getSvgPoint(circuitJson, short.center);
+      const point = getSvgPoint(circuitJson, baseSvg, short.center);
       const firstLabel = short.firstOwnerLabels.join(", ");
       const secondLabel = short.secondOwnerLabels.join(", ");
       const text = `SHORT ${index + 1}: ${firstLabel} <-> ${secondLabel}`;
 
       return `
-  <g data-type="short-debug" data-mode="${escapeXml(short.mode)}">
+  <g data-type="short-debug" data-mode="${escapeXml(short.mode)}" data-layer="${escapeXml(short.layer)}">
     <title>${escapeXml(text)}</title>
-    <circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="10" fill="none" stroke="#ff0033" stroke-width="3"/>
-    <circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="4" fill="none" stroke="#ff0033" stroke-width="2"/>
-    <line x1="${(point.x - 14).toFixed(2)}" y1="${point.y.toFixed(2)}" x2="${(point.x + 14).toFixed(2)}" y2="${point.y.toFixed(2)}" stroke="#ff0033" stroke-width="2"/>
-    <line x1="${point.x.toFixed(2)}" y1="${(point.y - 14).toFixed(2)}" x2="${point.x.toFixed(2)}" y2="${(point.y + 14).toFixed(2)}" stroke="#ff0033" stroke-width="2"/>
+    <circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="12" fill="none" stroke="${shortMarkerStroke}" stroke-width="3" stroke-opacity="0.65"/>
+    <circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="4" fill="${shortMarkerStroke}" fill-opacity="0.4"/>
+    <line x1="${(point.x - 16).toFixed(2)}" y1="${point.y.toFixed(2)}" x2="${(point.x + 16).toFixed(2)}" y2="${point.y.toFixed(2)}" stroke="${shortMarkerStroke}" stroke-width="3" stroke-opacity="0.65"/>
+    <line x1="${point.x.toFixed(2)}" y1="${(point.y - 16).toFixed(2)}" x2="${point.x.toFixed(2)}" y2="${(point.y + 16).toFixed(2)}" stroke="${shortMarkerStroke}" stroke-width="3" stroke-opacity="0.65"/>
   </g>`;
     })
     .join("");

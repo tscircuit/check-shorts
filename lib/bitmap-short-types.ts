@@ -18,6 +18,8 @@ export interface BitmapShortDebugLegendEntry {
 export interface FindBitmapShortsOptions {
   width?: number;
   height?: number;
+  micronsPerPixel?: number;
+  pixelsPerMm?: number;
   layer?: "top" | "bottom";
   mode?: "pcb" | "gerber";
 }

@@ -18,13 +18,21 @@ const isCopperElement = (
   element.type === "pcb_via" ||
   element.type === "pcb_plated_hole";
 
-const getElementLayer = (element: CopperElement): string | undefined => {
-  if (element.type === "pcb_plated_hole") return "top";
-  if (element.type === "pcb_via") return "top";
-  if (element.type === "pcb_trace") {
-    return element.route.find((point) => "layer" in point)?.layer;
+const isCopperElementOnLayer = (
+  element: CopperElement,
+  layer: "top" | "bottom",
+): boolean => {
+  if (element.type === "pcb_via" || element.type === "pcb_plated_hole") {
+    return element.layers?.includes(layer) ?? true;
   }
-  return element.layer;
+
+  if (element.type === "pcb_trace") {
+    return element.route.some(
+      (point) => "layer" in point && point.layer === layer,
+    );
+  }
+
+  return element.layer === layer;
 };
 
 const getConnectedIdToGlobalKeyMap = (
@@ -111,7 +119,7 @@ export const buildConnectivityGroups = ({
 
   for (const element of circuitJson) {
     if (!isCopperElement(element)) continue;
-    if (getElementLayer(element) !== layer) continue;
+    if (!isCopperElementOnLayer(element, layer)) continue;
 
     const key = getCopperElementGlobalConnectivityKey(
       element,

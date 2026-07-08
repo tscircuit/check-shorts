@@ -8,7 +8,11 @@ import {
   renderBitmapShortDebug,
 } from "lib/index";
 import { renderSvgToPng } from "lib/svg-to-png";
-import type { BitmapShort, FindBitmapShortsOptions } from "lib/index";
+import type {
+  BitmapShort,
+  BitmapShortDebugRender,
+  FindBitmapShortsOptions,
+} from "lib/index";
 import type { AnyCircuitElement } from "circuit-json";
 
 const getSnapshotPath = (
@@ -91,6 +95,18 @@ export const writeOrCompareBitmapSnapshot = async (
 ): Promise<BitmapShort[]> => {
   const debugRender = await renderBitmapShortDebug(circuitJson, options);
 
+  return writeOrCompareBitmapDebugSnapshot(
+    testPath,
+    snapshotSuffix,
+    debugRender,
+  );
+};
+
+export const writeOrCompareBitmapDebugSnapshot = async (
+  testPath: string,
+  snapshotSuffix: string,
+  debugRender: BitmapShortDebugRender,
+): Promise<BitmapShort[]> => {
   await writeOrCompareBinarySnapshot(
     testPath,
     snapshotSuffix,
