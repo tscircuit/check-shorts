@@ -1,19 +1,13 @@
 import { convertCircuitJsonToPcbSvg } from "circuit-to-svg";
 import type { AnyCircuitElement } from "circuit-json";
 import type { BitmapShort } from "./bitmap-short-detector";
+import { getBoardBounds } from "./bitmap-geometry";
 
 interface Rect {
   x: number;
   y: number;
   width: number;
   height: number;
-}
-
-interface BoardBounds {
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
 }
 
 const getNumberAttribute = (
@@ -40,30 +34,6 @@ const getPcbBoundaryRect = (svg: string): Rect | null => {
   }
 
   return { x, y, width, height };
-};
-
-const getBoardBounds = (circuitJson: AnyCircuitElement[]): BoardBounds => {
-  const board = circuitJson.find((element) => element.type === "pcb_board");
-  const outline = board?.outline ?? [];
-
-  if (outline.length > 0) {
-    return {
-      minX: Math.min(...outline.map((point) => point.x)),
-      maxX: Math.max(...outline.map((point) => point.x)),
-      minY: Math.min(...outline.map((point) => point.y)),
-      maxY: Math.max(...outline.map((point) => point.y)),
-    };
-  }
-
-  const center = board?.center ?? { x: 0, y: 0 };
-  const width = board?.width ?? 20;
-  const height = board?.height ?? 20;
-  return {
-    minX: center.x - width / 2,
-    maxX: center.x + width / 2,
-    minY: center.y - height / 2,
-    maxY: center.y + height / 2,
-  };
 };
 
 const getSvgPoint = (

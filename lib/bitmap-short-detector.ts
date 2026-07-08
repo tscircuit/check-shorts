@@ -1,6 +1,12 @@
-import { cju } from "@tscircuit/circuit-json-util";
+import { cju, getBoundsOfPcbElements } from "@tscircuit/circuit-json-util";
 import type { AnyCircuitElement } from "circuit-json";
-import type { Bounds } from "@tscircuit/math-utils";
+import {
+  boundsIntersection,
+  clamp,
+  getBoundsFromPoints,
+  type Bounds,
+  type Point,
+} from "@tscircuit/math-utils";
 import { getFullConnectivityMapFromCircuitJson } from "circuit-json-to-connectivity-map";
 import {
   buildConnectivityGroups,
@@ -52,12 +58,13 @@ const includePointInBounds = (
   bounds: Bounds | null,
   point: { x: number; y: number },
   margin = 0,
-): Bounds => ({
-  minX: Math.min(bounds?.minX ?? Number.POSITIVE_INFINITY, point.x - margin),
-  maxX: Math.max(bounds?.maxX ?? Number.NEGATIVE_INFINITY, point.x + margin),
-  minY: Math.min(bounds?.minY ?? Number.POSITIVE_INFINITY, point.y - margin),
-  maxY: Math.max(bounds?.maxY ?? Number.NEGATIVE_INFINITY, point.y + margin),
-});
+): Bounds =>
+  mergeBounds(bounds, {
+    minX: point.x - margin,
+    maxX: point.x + margin,
+    minY: point.y - margin,
+    maxY: point.y + margin,
+  })!;
 
 const mergeBounds = (
   first: Bounds | null,
@@ -74,6 +81,12 @@ const mergeBounds = (
   };
 };
 
+const isFiniteBounds = (bounds: Bounds): boolean =>
+  Number.isFinite(bounds.minX) &&
+  Number.isFinite(bounds.minY) &&
+  Number.isFinite(bounds.maxX) &&
+  Number.isFinite(bounds.maxY);
+
 const expandBounds = (bounds: Bounds, margin: number): Bounds => ({
   minX: bounds.minX - margin,
   maxX: bounds.maxX + margin,
@@ -81,17 +94,18 @@ const expandBounds = (bounds: Bounds, margin: number): Bounds => ({
   maxY: bounds.maxY + margin,
 });
 
-const clampBounds = (bounds: Bounds, boardBounds: Bounds): Bounds => ({
-  minX: Math.max(boardBounds.minX, bounds.minX),
-  maxX: Math.min(boardBounds.maxX, bounds.maxX),
-  minY: Math.max(boardBounds.minY, bounds.minY),
-  maxY: Math.min(boardBounds.maxY, bounds.maxY),
-});
+const clampBounds = (bounds: Bounds, boardBounds: Bounds): Bounds =>
+  boundsIntersection(bounds, boardBounds) ?? {
+    minX: clamp(bounds.minX, boardBounds.minX, boardBounds.maxX),
+    maxX: clamp(bounds.maxX, boardBounds.minX, boardBounds.maxX),
+    minY: clamp(bounds.minY, boardBounds.minY, boardBounds.maxY),
+    maxY: clamp(bounds.maxY, boardBounds.minY, boardBounds.maxY),
+  };
 
 const getCopperPourBounds = (
   element: Extract<CopperElement, { type: "pcb_copper_pour" }>,
 ): Bounds | null => {
-  const points: Array<{ x: number; y: number }> = [];
+  const points: Point[] = [];
 
   if (element.shape === "brep") {
     points.push(...(element.brep_shape?.outer_ring?.vertices ?? []));
@@ -102,10 +116,55 @@ const getCopperPourBounds = (
     points.push(...element.points);
   }
 
-  return points.reduce<Bounds | null>(
-    (bounds, point) => includePointInBounds(bounds, point),
-    null,
-  );
+  return getBoundsFromPoints(points);
+};
+
+const getTraceBounds = (
+  element: Extract<CopperElement, { type: "pcb_trace" }>,
+): Bounds | null => {
+  let bounds: Bounds | null = null;
+
+  for (const point of element.route) {
+    if ("start" in point && "end" in point) {
+      const margin = (point.width ?? 0) / 2;
+      bounds = includePointInBounds(bounds, point.start, margin);
+      bounds = includePointInBounds(bounds, point.end, margin);
+      continue;
+    }
+
+    if (!("x" in point) || !("y" in point)) continue;
+    const margin =
+      "width" in point
+        ? Number(point.width) / 2
+        : "via_diameter" in point
+          ? Number(point.via_diameter) / 2
+          : 0;
+    bounds = includePointInBounds(bounds, point, margin);
+  }
+
+  return bounds;
+};
+
+const getSmtpadBounds = (
+  element: Extract<CopperElement, { type: "pcb_smtpad" }>,
+): Bounds | null => {
+  if (element.shape === "polygon") {
+    return getBoundsFromPoints(element.points);
+  }
+
+  const pad = element as Extract<CopperElement, { type: "pcb_smtpad" }> & {
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+    radius?: number;
+  };
+  const radius =
+    pad.shape === "circle"
+      ? (pad.radius ?? (pad.width ?? 0) / 2)
+      : Math.hypot(pad.width ?? 0, pad.height ?? 0) / 2;
+
+  return includePointInBounds(null, pad, radius);
 };
 
 const getElementBounds = (element: CopperElement): Bounds | null => {
@@ -114,66 +173,15 @@ const getElementBounds = (element: CopperElement): Bounds | null => {
   }
 
   if (element.type === "pcb_smtpad") {
-    if (element.shape === "polygon") {
-      return element.points.reduce<Bounds | null>(
-        (bounds, point) => includePointInBounds(bounds, point),
-        null,
-      );
-    }
-
-    const pad = element as Extract<CopperElement, { type: "pcb_smtpad" }> & {
-      x: number;
-      y: number;
-      width?: number;
-      height?: number;
-      radius?: number;
-    };
-    const radius =
-      pad.shape === "circle"
-        ? (pad.radius ?? (pad.width ?? 0) / 2)
-        : Math.hypot(pad.width ?? 0, pad.height ?? 0) / 2;
-    return includePointInBounds(null, pad, radius);
+    return getSmtpadBounds(element);
   }
 
   if (element.type === "pcb_trace") {
-    return element.route.reduce<Bounds | null>((bounds, point) => {
-      if ("start" in point && "end" in point) {
-        const width = point.width ?? 0;
-        return includePointInBounds(
-          includePointInBounds(bounds, point.start, width / 2),
-          point.end,
-          width / 2,
-        );
-      }
-
-      if (!("x" in point) || !("y" in point)) return bounds;
-      const width =
-        "width" in point
-          ? Number(point.width)
-          : "via_diameter" in point
-            ? Number(point.via_diameter)
-            : 0;
-      return includePointInBounds(bounds, point, width / 2);
-    }, null);
+    return getTraceBounds(element);
   }
 
-  const hole = element as CopperElement & {
-    outer_diameter?: number;
-    hole_diameter?: number;
-    outer_width?: number;
-    outer_height?: number;
-    hole_width?: number;
-    hole_height?: number;
-  };
-  const diameter = Math.max(
-    hole.outer_diameter ?? 0,
-    hole.hole_diameter ?? 0,
-    hole.outer_width ?? 0,
-    hole.outer_height ?? 0,
-    hole.hole_width ?? 0,
-    hole.hole_height ?? 0,
-  );
-  return includePointInBounds(null, element, diameter / 2);
+  const bounds = getBoundsOfPcbElements([element]);
+  return isFiniteBounds(bounds) ? bounds : null;
 };
 
 const getGroupBounds = ({
