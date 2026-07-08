@@ -4,17 +4,17 @@
   "license": "MIT",
   "type": "module",
   "description": "Detect unintended shorts between named nets",
-  "main": "lib/index.ts",
-  "module": "lib/index.ts",
-  "types": "lib/index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./lib/index.ts",
-      "import": "./lib/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "files": [
-    "lib"
+    "dist"
   ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
@@ -28,7 +28,8 @@
   },
   "homepage": "https://github.com/tscircuit/check-shorts#readme",
   "scripts": {
-    "build": "bun run typecheck",
+    "build": "bun run typecheck && tsc -p tsconfig.build.json && bun build lib/index.ts --outdir dist --target=node --format=esm --packages=external",
+    "smoke:downstream": "bun test tests/downstream-import-smoke.test.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",
@@ -36,17 +37,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.4",
-    "@tscircuit/core": "^0.0.1382",
-    "@tscircuit/math-utils": "^0.0.36",
     "@types/bun": "latest",
     "@types/react": "^19.2.17",
-    "circuit-json": "^0.0.443",
-    "circuit-json-to-connectivity-map": "^0.0.23",
-    "circuit-json-to-gerber": "^0.0.79",
-    "circuit-to-canvas": "^0.0.110",
-    "circuit-to-svg": "^0.0.370",
     "looks-same": "^9.0.1",
-    "react": "^19.2.7",
     "typescript": "^5.9.2"
   },
   "peerDependencies": {
@@ -54,8 +47,18 @@
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
+    "@tscircuit/circuit-json-util": "^0.0.99",
+    "@tscircuit/core": "^0.0.1382",
     "@tscircuit/image-utils": "^0.0.8",
+    "@tscircuit/math-utils": "^0.0.36",
+    "circuit-json": "^0.0.443",
+    "circuit-json-to-connectivity-map": "^0.0.23",
+    "circuit-json-to-gerber": "^0.0.79",
+    "circuit-to-canvas": "^0.0.110",
+    "circuit-to-svg": "^0.0.370",
     "fast-png": "^8.0.0",
-    "gerber-to-svg": "^4.2.8"
+    "gerber-to-svg": "^4.2.8",
+    "react": "^19.2.7",
+    "transformation-matrix": "^2.16.1"
   }
 }

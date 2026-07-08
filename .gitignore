@@ -2,3 +2,4 @@ node_modules
 bun.lock
 .yalc
 .DS_Store
+dist

@@ -21,6 +21,8 @@ type CirclePath = {
 
 type PathPart = PolygonPath | CirclePath;
 
+type CanvasStyle = string | CanvasGradient | CanvasPattern;
+
 const transformPoint = (matrix: Matrix, point: Point): Point =>
   applyToPoint(matrix, point) as Point;
 
@@ -59,8 +61,8 @@ const getBounds = (parts: PathPart[]): Bounds => {
 export class BitmapCanvasContext {
   canvas: { width: number; height: number };
   pixels: Uint8Array;
-  fillStyle: unknown = "#000";
-  strokeStyle: unknown = "#000";
+  fillStyle: CanvasStyle = "#000";
+  strokeStyle: CanvasStyle = "#000";
   globalAlpha = 1;
   lineWidth = 1;
   lineCap: "butt" | "round" | "square" = "butt";
