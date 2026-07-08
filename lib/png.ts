@@ -85,7 +85,7 @@ export const encodeRgbaPng = ({
   return concatBytes([
     new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
     createChunk("IHDR", header),
-    createChunk("IDAT", deflateSync(scanlines)),
+    createChunk("IDAT", deflateSync(scanlines, { level: 1 })),
     createChunk("IEND", new Uint8Array()),
   ]);
 };
