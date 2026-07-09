@@ -3,9 +3,9 @@ import {
   convertSoupToGerberCommands,
   stringifyGerberCommandLayers,
 } from "circuit-json-to-gerber";
-import { convertCircuitJsonToPcbSvg } from "circuit-to-svg";
 import type { ReactElement } from "react";
 import type { AnyCircuitElement, PcbTrace } from "circuit-json";
+import { renderPcbSvg } from "./pcb-debug-svg-renderer";
 
 export interface RenderReproOptions {
   renderUntilSettled?: boolean;
@@ -42,7 +42,7 @@ export const renderTscircuitRepro = async (
   const circuitJson = circuit.getCircuitJson();
   return {
     circuitJson,
-    pcbSvg: convertCircuitJsonToPcbSvg(circuitJson),
+    pcbSvg: renderPcbSvg(circuitJson, undefined),
   };
 };
 

@@ -3,12 +3,13 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   symlinkSync,
   writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+} from "fs";
+import { tmpdir } from "os";
+import { join, resolve } from "path";
+import { spawnSync } from "child_process";
 
 const repoRoot = resolve(import.meta.dir, "..");
 
@@ -71,7 +72,7 @@ test("downstream TypeScript consumers can statically import package exports", ()
           noEmit: true,
           skipLibCheck: false,
         },
-        include: ["index.ts"],
+        include: ["index.ts", "repro.ts"],
       },
       null,
       2,
@@ -99,9 +100,67 @@ test("downstream TypeScript consumers can statically import package exports", ()
   const tscBin = join(repoRoot, "node_modules", ".bin", "tsc");
   run(tscBin, ["--noEmit"], consumerRoot);
 
+  writeFileSync(
+    join(consumerRoot, "bundle.ts"),
+    [
+      'import { createShortDebugSvg, findBitmapShorts } from "@tscircuit/check-shorts";',
+      "",
+      "export const render = () => createShortDebugSvg([], []);",
+      "export const detect = findBitmapShorts;",
+    ].join("\n"),
+  );
+  run(
+    "bun",
+    ["build", "bundle.ts", "--outdir", "bundle-dist", "--target", "bun"],
+    consumerRoot,
+  );
+  const bundledRootImport = readFileSync(
+    join(consumerRoot, "bundle-dist", "bundle.js"),
+    "utf8",
+  );
+  expect(bundledRootImport).not.toMatch(/\bfrom\s+["']circuit-json["']/);
+
+  writeFileSync(
+    join(consumerRoot, "repro.ts"),
+    [
+      'import { appendCopperBridgeTrace, convertCircuitJsonToGerberLayers, renderTscircuitRepro } from "@tscircuit/check-shorts/repro";',
+      'import type { CopperBridgeOptions, GerberLayerMap, RenderedRepro, RenderReproOptions } from "@tscircuit/check-shorts/repro";',
+      "",
+      "const options: CopperBridgeOptions = { start: { x: 0, y: 0 }, end: { x: 1, y: 1 } };",
+      "const bridged = appendCopperBridgeTrace([], options);",
+      "const gerbers: GerberLayerMap = convertCircuitJsonToGerberLayers([]);",
+      "const render: typeof renderTscircuitRepro = renderTscircuitRepro;",
+      "const repro: RenderedRepro | null = null;",
+      "const renderOptions: RenderReproOptions = {};",
+      "void bridged;",
+      "void gerbers;",
+      "void render;",
+      "void repro;",
+      "void renderOptions;",
+    ].join("\n"),
+  );
+  run(tscBin, ["--noEmit", "--project", "tsconfig.json"], consumerRoot);
+
   const packageJson = JSON.parse(
     readFileSync(join(repoRoot, "package.json"), "utf8"),
   );
   expect(packageJson.exports["."].types).toBe("./dist/index.d.ts");
   expect(packageJson.exports["."].import).toBe("./dist/index.js");
+  expect(packageJson.exports["./repro"].types).toBe("./dist/repro.d.ts");
+  expect(packageJson.exports["./repro"].import).toBe("./dist/repro.js");
+
+  const bannedRootReferences = ["@tscircuit/core", "circuit-to-svg", "react"];
+  const rootDistFiles = ["index.js", "index.d.ts"];
+  for (const distFile of rootDistFiles) {
+    const contents = readFileSync(join(repoRoot, "dist", distFile), "utf8");
+    for (const bannedReference of bannedRootReferences) {
+      expect(contents).not.toContain(bannedReference);
+    }
+    if (distFile.endsWith(".js")) {
+      expect(contents).not.toMatch(/\bfrom\s+["']circuit-json["']/);
+    }
+  }
+
+  expect(readdirSync(join(repoRoot, "dist"))).toContain("repro.js");
+  expect(readdirSync(join(repoRoot, "dist"))).toContain("repro.d.ts");
 }, 30_000);

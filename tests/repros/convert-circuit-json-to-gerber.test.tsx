@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   convertCircuitJsonToGerberLayers,
   renderTscircuitRepro,
-} from "lib/index";
+} from "lib/repro";
 import { twoNetNoShortRepro } from "tests/fixtures/repros";
 
 test("converts rendered Circuit JSON into Gerber layers", async () => {

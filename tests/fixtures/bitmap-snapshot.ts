@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { basename, dirname, join } from "path";
 import looksSame from "@tscircuit/image-utils/looks-same";
 import {
   appendBitmapLegend,

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readFileSync } from "fs";
 import type { AnyCircuitElement } from "circuit-json";
 import { createShortDebugSvg, renderBitmapShortDebug } from "lib/index";
 import { writeOrCompareBitmapDebugSnapshot } from "tests/fixtures/bitmap-snapshot";

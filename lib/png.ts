@@ -1,4 +1,4 @@
-import { deflateSync } from "node:zlib";
+import { deflateSync } from "zlib";
 import type {
   BitmapShortDebugLegendEntry,
   BitmapShortDebugRender,

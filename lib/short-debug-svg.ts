@@ -1,80 +1,6 @@
-import { convertCircuitJsonToPcbSvg } from "circuit-to-svg";
 import type { AnyCircuitElement } from "circuit-json";
 import type { BitmapShort } from "./bitmap-short-detector";
-import { getBoardBounds } from "./bitmap-geometry";
-
-interface Rect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-const getNumberAttribute = (
-  svgElement: string,
-  name: string,
-): number | null => {
-  const match = svgElement.match(new RegExp(`(?:^|\\s)${name}="([^"]+)"`));
-  if (!match?.[1]) return null;
-  const value = Number(match[1]);
-  return Number.isFinite(value) ? value : null;
-};
-
-const getPcbBoundaryRect = (svg: string): Rect | null => {
-  const match = svg.match(/<rect\b[^>]*class="pcb-boundary"[^>]*>/);
-  const element = match?.[0];
-  if (!element) return null;
-
-  const x = getNumberAttribute(element, "x");
-  const y = getNumberAttribute(element, "y");
-  const width = getNumberAttribute(element, "width");
-  const height = getNumberAttribute(element, "height");
-  if (x === null || y === null || width === null || height === null) {
-    return null;
-  }
-
-  return { x, y, width, height };
-};
-
-const getSvgPoint = (
-  circuitJson: AnyCircuitElement[],
-  baseSvg: string,
-  point: { x: number; y: number },
-): { x: number; y: number } => {
-  const bounds = getBoardBounds(circuitJson);
-  const rect = getPcbBoundaryRect(baseSvg);
-
-  if (!rect) {
-    const boardWidth = bounds.maxX - bounds.minX;
-    const boardHeight = bounds.maxY - bounds.minY;
-    const scale = Math.min(700 / boardWidth, 500 / boardHeight);
-    const center = {
-      x: (bounds.minX + bounds.maxX) / 2,
-      y: (bounds.minY + bounds.maxY) / 2,
-    };
-
-    return {
-      x: 400 + (point.x - center.x) * scale,
-      y: 300 - (point.y - center.y) * scale,
-    };
-  }
-
-  return {
-    x:
-      rect.x +
-      ((point.x - bounds.minX) / (bounds.maxX - bounds.minX)) * rect.width,
-    y:
-      rect.y +
-      ((bounds.maxY - point.y) / (bounds.maxY - bounds.minY)) * rect.height,
-  };
-};
-
-const escapeXml = (value: string): string =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+import { escapeXml, getSvgPoint, renderPcbSvg } from "./pcb-debug-svg-renderer";
 
 const shortMarkerStroke = "#9b5cff";
 
@@ -89,7 +15,7 @@ export const createShortDebugSvg = (
     (shortLayers.size === 1
       ? ([...shortLayers][0] as "top" | "bottom")
       : undefined);
-  const baseSvg = convertCircuitJsonToPcbSvg(circuitJson, { layer });
+  const baseSvg = renderPcbSvg(circuitJson, layer);
   const seenShortCenters = new Set<string>();
   const overlays = shorts
     .filter((short) => {
@@ -99,7 +25,7 @@ export const createShortDebugSvg = (
       return true;
     })
     .map((short, index) => {
-      const point = getSvgPoint(circuitJson, baseSvg, short.center);
+      const point = getSvgPoint(circuitJson, short.center);
       const firstLabel = short.firstOwnerLabels.join(", ");
       const secondLabel = short.secondOwnerLabels.join(", ");
       const text = `SHORT ${index + 1}: ${firstLabel} <-> ${secondLabel}`;

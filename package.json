@@ -11,6 +11,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./repro": {
+      "types": "./dist/repro.d.ts",
+      "import": "./dist/repro.js"
     }
   },
   "files": [
@@ -28,7 +32,7 @@
   },
   "homepage": "https://github.com/tscircuit/check-shorts#readme",
   "scripts": {
-    "build": "bun run typecheck && tsc -p tsconfig.build.json && bun build lib/index.ts --outdir dist --target=node --format=esm --packages=external",
+    "build": "bun run typecheck && tsc -p tsconfig.build.json && bun build lib/index.ts lib/repro.ts --outdir dist --target=node --format=esm --packages=external",
     "smoke:downstream": "bun test tests/downstream-import-smoke.test.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
@@ -39,18 +43,17 @@
     "@biomejs/biome": "^2.2.4",
     "@types/bun": "latest",
     "@types/react": "^19.2.17",
+    "@tscircuit/core": "^0.0.1382",
     "looks-same": "^9.0.1",
-    "typescript": "^5.9.2",
-    "circuit-to-svg": "^0.0.378"
+    "react": "^19.2.7",
+    "typescript": "^5.9.2"
   },
   "peerDependencies": {
-    "typescript": "^5",
-    "circuit-to-svg": "*"
+    "typescript": "^5"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
     "@tscircuit/circuit-json-util": "^0.0.99",
-    "@tscircuit/core": "^0.0.1382",
     "@tscircuit/image-utils": "^0.0.8",
     "@tscircuit/math-utils": "^0.0.36",
     "circuit-json": "^0.0.443",
@@ -59,7 +62,6 @@
     "circuit-to-canvas": "^0.0.110",
     "fast-png": "^8.0.0",
     "gerber-to-svg": "^4.2.8",
-    "react": "^19.2.7",
     "transformation-matrix": "^2.16.1"
   }
 }

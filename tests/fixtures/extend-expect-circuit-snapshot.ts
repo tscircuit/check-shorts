@@ -1,10 +1,12 @@
 import { type MatcherResult, expect } from "bun:test";
 import { RootCircuit } from "@tscircuit/core";
 import type { AnyCircuitElement } from "circuit-json";
-import { convertCircuitJsonToPcbSvg } from "circuit-to-svg";
+import { renderPcbSvg } from "lib/pcb-debug-svg-renderer";
 import looksSame from "looks-same";
-import * as fs from "node:fs";
-import * as path from "node:path";
+import * as fs from "fs";
+import * as path from "path";
+
+type PcbSnapshotOptions = { layer?: "top" | "bottom" };
 
 const shouldUpdateSnapshots = () =>
   process.argv.includes("--update-snapshots") ||
@@ -25,7 +27,7 @@ async function savePcbSvgSnapshot({
   circuitJson?: AnyCircuitElement[];
   content?: string;
   testPath: string;
-  options?: Parameters<typeof convertCircuitJsonToPcbSvg>[1];
+  options?: PcbSnapshotOptions;
 }): Promise<MatcherResult> {
   const normalizedTestPath = testPath.replace(/\.test\.tsx?$/, "");
   const snapshotDir = path.join(
@@ -35,7 +37,7 @@ async function savePcbSvgSnapshot({
   const snapshotName = `${path.basename(normalizedTestPath)}-pcb.snap.svg`;
   const filePath = path.join(snapshotDir, snapshotName);
   const snapshotContent =
-    content ?? convertCircuitJsonToPcbSvg(circuitJson ?? [], options ?? {});
+    content ?? renderPcbSvg(circuitJson ?? [], options?.layer);
 
   if (!fs.existsSync(snapshotDir)) {
     fs.mkdirSync(snapshotDir, { recursive: true });
@@ -91,7 +93,7 @@ expect.extend({
     this: unknown,
     received: unknown,
     testPath: string,
-    options?: Parameters<typeof convertCircuitJsonToPcbSvg>[1],
+    options?: PcbSnapshotOptions,
   ): Promise<MatcherResult> {
     let circuitJson: AnyCircuitElement[];
 
@@ -122,7 +124,7 @@ declare module "bun:test" {
   interface Matchers<T = unknown> {
     toMatchPcbSnapshot(
       testPath: string,
-      options?: Parameters<typeof convertCircuitJsonToPcbSvg>[1],
+      options?: PcbSnapshotOptions,
     ): Promise<MatcherResult>;
   }
 }

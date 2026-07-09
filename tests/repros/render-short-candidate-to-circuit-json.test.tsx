@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { appendCopperBridgeTrace, createShortDebugSvg } from "lib/index";
+import { createShortDebugSvg } from "lib/index";
+import { appendCopperBridgeTrace } from "lib/repro";
 import {
   writeOrCompareBitmapSnapshot,
   writeOrCompareSvgSnapshot,
