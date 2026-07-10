@@ -68,7 +68,6 @@
     "fast-png": "^8.0.0",
     "gerber-to-svg": "*",
     "react": "^19.2.7",
-    "tscircuit": "*",
     "transformation-matrix": "^2.16.1",
     "typescript": "^5"
   }
