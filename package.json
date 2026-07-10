@@ -41,11 +41,13 @@
     "@types/react": "^19.2.17",
     "looks-same": "^9.0.1",
     "typescript": "^5.9.2",
+    "circuit-json": "^0.0.446",
     "circuit-to-svg": "^0.0.378"
   },
   "peerDependencies": {
     "typescript": "^5",
-    "circuit-to-svg": "*"
+    "circuit-to-svg": "*",
+    "circuit-json": "*"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
@@ -53,7 +55,6 @@
     "@tscircuit/core": "^0.0.1382",
     "@tscircuit/image-utils": "^0.0.8",
     "@tscircuit/math-utils": "^0.0.36",
-    "circuit-json": "^0.0.443",
     "circuit-json-to-connectivity-map": "^0.0.23",
     "circuit-json-to-gerber": "^0.0.79",
     "circuit-to-canvas": "^0.0.110",
