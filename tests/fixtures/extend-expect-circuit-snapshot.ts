@@ -1,5 +1,5 @@
 import { type MatcherResult, expect } from "bun:test";
-import { RootCircuit } from "@tscircuit/core";
+import { RootCircuit } from "tscircuit";
 import type { AnyCircuitElement } from "circuit-json";
 import { convertCircuitJsonToPcbSvg } from "circuit-to-svg";
 import looksSame from "looks-same";

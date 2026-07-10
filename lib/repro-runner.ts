@@ -1,4 +1,4 @@
-import { RootCircuit } from "@tscircuit/core";
+import { RootCircuit } from "tscircuit";
 import {
   convertSoupToGerberCommands,
   stringifyGerberCommandLayers,
