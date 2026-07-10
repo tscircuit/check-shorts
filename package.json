@@ -1,6 +1,6 @@
 {
   "name": "@tscircuit/check-shorts",
-  "version": "0.0.5",
+  "version": "0.0.10",
   "license": "MIT",
   "type": "module",
   "description": "Detect unintended shorts between named nets",
