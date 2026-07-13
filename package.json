@@ -50,7 +50,6 @@
     "circuit-to-svg": "^0.0.378",
     "fast-png": "^8.0.0",
     "gerber-to-svg": "^4.2.8",
-    "looks-same": "^9.0.1",
     "react": "^19.2.7",
     "tscircuit": "^0.0.2044",
     "transformation-matrix": "^2.16.1",

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { appendCopperBridgeTrace, createShortDebugSvg } from "lib/index";
 import {
   writeOrCompareBitmapSnapshot,
+  writeOrCompareCircuitJsonSvgSnapshot,
   writeOrCompareSvgSnapshot,
 } from "tests/fixtures/bitmap-snapshot";
 import { getTestFixture } from "tests/fixtures/get-test-fixture";
@@ -50,5 +51,8 @@ test("renders a copper bridge short candidate PCB snapshot", async () => {
     import.meta.path,
     createShortDebugSvg(bridgedCircuitJson, [...pcbShorts, ...gerberShorts]),
   );
-  await expect(bridgedCircuitJson).toMatchPcbSnapshot(import.meta.path);
+  await writeOrCompareCircuitJsonSvgSnapshot(
+    import.meta.path,
+    bridgedCircuitJson,
+  );
 });

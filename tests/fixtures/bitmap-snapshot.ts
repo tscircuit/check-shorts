@@ -1,7 +1,8 @@
 import { expect } from "bun:test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import looksSame from "@tscircuit/image-utils/looks-same";
+import { convertCircuitJsonToPcbSvg } from "circuit-to-svg";
 import {
   appendBitmapLegend,
   encodeRgbaPng,
@@ -35,31 +36,43 @@ const getSnapshotPath = (
 export const writeOrCompareSvgSnapshot = async (
   testPath: string,
   svg: string,
+  snapshotSuffix = "short-debug",
 ) => {
   const { snapshotDir, snapshotPath } = getSnapshotPath(
     testPath,
-    "short-debug",
+    snapshotSuffix,
     "svg",
   );
 
   mkdirSync(snapshotDir, { recursive: true });
 
-  if (!Bun.env.BUN_UPDATE_SNAPSHOTS) {
-    const result = await looksSame(
-      renderSvgToPng(readFileSync(snapshotPath, "utf8")),
-      renderSvgToPng(svg),
-      {
-        strict: true,
-        ignoreAntialiasing: false,
-        ignoreCaret: false,
-      },
-    );
-    expect(result.equal).toBe(true);
+  if (!existsSync(snapshotPath) || Bun.env.BUN_UPDATE_SNAPSHOTS) {
+    writeFileSync(snapshotPath, svg);
     return;
   }
 
-  writeFileSync(snapshotPath, svg);
+  const result = await looksSame(
+    renderSvgToPng(readFileSync(snapshotPath, "utf8")),
+    renderSvgToPng(svg),
+    {
+      strict: true,
+      ignoreAntialiasing: false,
+      ignoreCaret: false,
+    },
+  );
+  expect(result.equal).toBe(true);
 };
+
+export const writeOrCompareCircuitJsonSvgSnapshot = async (
+  testPath: string,
+  circuitJson: AnyCircuitElement[],
+  options?: Parameters<typeof convertCircuitJsonToPcbSvg>[1],
+): Promise<void> =>
+  writeOrCompareSvgSnapshot(
+    testPath,
+    convertCircuitJsonToPcbSvg(circuitJson, options),
+    "pcb",
+  );
 
 export const writeOrCompareBinarySnapshot = (
   testPath: string,
@@ -74,17 +87,18 @@ export const writeOrCompareBinarySnapshot = (
 
   mkdirSync(snapshotDir, { recursive: true });
 
-  if (!Bun.env.BUN_UPDATE_SNAPSHOTS) {
-    return looksSame(readFileSync(snapshotPath), bytes, {
-      strict: true,
-      ignoreAntialiasing: false,
-      ignoreCaret: false,
-    }).then((result) => {
-      expect(result.equal).toBe(true);
-    });
+  if (!existsSync(snapshotPath) || Bun.env.BUN_UPDATE_SNAPSHOTS) {
+    writeFileSync(snapshotPath, bytes);
+    return;
   }
 
-  writeFileSync(snapshotPath, bytes);
+  return looksSame(readFileSync(snapshotPath), bytes, {
+    strict: true,
+    ignoreAntialiasing: false,
+    ignoreCaret: false,
+  }).then((result) => {
+    expect(result.equal).toBe(true);
+  });
 };
 
 export const writeOrCompareBitmapSnapshot = async (
