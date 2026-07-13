@@ -2,8 +2,10 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { AnyCircuitElement } from "circuit-json";
 import { createShortDebugSvg, renderBitmapShortDebug } from "lib/index";
-import { writeOrCompareBitmapDebugSnapshot } from "tests/fixtures/bitmap-snapshot";
-import "tests/fixtures/extend-expect-circuit-snapshot";
+import {
+  writeOrCompareBitmapDebugSnapshot,
+  writeOrCompareSvgSnapshot,
+} from "tests/fixtures/bitmap-snapshot";
 
 const getBlinkBuddyCircuitJson = (): AnyCircuitElement[] =>
   JSON.parse(readFileSync(`${import.meta.dir}/BlinkBuddy.json`, "utf8"));
@@ -64,7 +66,9 @@ test("BlinkBuddy gerber repro finds separate top copper-pour contacts", async ()
   expect(topDebug.shorts[1]?.center.y).toBeCloseTo(23.29, 1);
   expect(topDebug.shorts[2]?.center.x).toBeCloseTo(21.55, 1);
   expect(topDebug.shorts[2]?.center.y).toBeCloseTo(23.38, 1);
-  await expect(
+  await writeOrCompareSvgSnapshot(
+    import.meta.path,
     createShortDebugSvg(circuitJson, topDebug.shorts, { layer: "top" }),
-  ).toMatchPcbSnapshot(import.meta.path);
+    "pcb",
+  );
 }, 90_000);

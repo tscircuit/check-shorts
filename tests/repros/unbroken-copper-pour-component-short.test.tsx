@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { writeOrCompareBitmapSnapshot } from "tests/fixtures/bitmap-snapshot";
+import {
+  writeOrCompareBitmapSnapshot,
+  writeOrCompareCircuitJsonSvgSnapshot,
+} from "tests/fixtures/bitmap-snapshot";
 import { getTestFixture } from "tests/fixtures/get-test-fixture";
 
 test("renders a same-net copper pour touch with its source trace filtered out", async () => {
@@ -54,5 +57,8 @@ test("renders a same-net copper pour touch with its source trace filtered out", 
       )
     ).length,
   ).toBe(1);
-  await expect(filteredCircuitJson).toMatchPcbSnapshot(import.meta.path);
+  await writeOrCompareCircuitJsonSvgSnapshot(
+    import.meta.path,
+    filteredCircuitJson,
+  );
 });

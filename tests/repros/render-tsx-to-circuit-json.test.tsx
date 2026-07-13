@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { writeOrCompareBitmapSnapshot } from "tests/fixtures/bitmap-snapshot";
+import {
+  writeOrCompareBitmapSnapshot,
+  writeOrCompareCircuitJsonSvgSnapshot,
+} from "tests/fixtures/bitmap-snapshot";
 import { getTestFixture } from "tests/fixtures/get-test-fixture";
 import { twoNetNoShortRepro } from "tests/fixtures/repros";
 
@@ -37,5 +40,5 @@ test("renders a TSX repro to Circuit JSON and PCB snapshot", async () => {
       { mode: "gerber" },
     ),
   ).toEqual([]);
-  await expect(circuit).toMatchPcbSnapshot(import.meta.path);
+  await writeOrCompareCircuitJsonSvgSnapshot(import.meta.path, circuitJson);
 });
