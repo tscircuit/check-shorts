@@ -1,5 +1,5 @@
 import { cju } from "@tscircuit/circuit-json-util";
-import type { AnyCircuitElement } from "circuit-json";
+import type { AnyCircuitElement, LayerRef } from "circuit-json";
 import type { ConnectivityMap } from "circuit-json-to-connectivity-map";
 
 export type CopperElement =
@@ -20,7 +20,7 @@ const isCopperElement = (
 
 const isCopperElementOnLayer = (
   element: CopperElement,
-  layer: "top" | "bottom",
+  layer: LayerRef,
 ): boolean => {
   if (element.type === "pcb_via" || element.type === "pcb_plated_hole") {
     return element.layers?.includes(layer) ?? true;
@@ -112,7 +112,7 @@ export const buildConnectivityGroups = ({
   circuitJson: AnyCircuitElement[];
   connMap: ConnectivityMap;
   db: ReturnType<typeof cju>;
-  layer: "top" | "bottom";
+  layer: LayerRef;
 }): Map<string, CopperElement[]> => {
   const connectedIdToKey = getConnectedIdToGlobalKeyMap(connMap);
   const groups = new Map<string, CopperElement[]>();

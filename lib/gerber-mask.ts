@@ -1,5 +1,5 @@
 import type { Bounds } from "@tscircuit/math-utils";
-import type { AnyCircuitElement } from "circuit-json";
+import type { AnyCircuitElement, LayerRef } from "circuit-json";
 import { getGerberLayerString } from "./gerber-layer";
 import { renderGerberToSvg } from "./gerber-svg";
 import { getMaskFromPng } from "./png-mask";
@@ -46,7 +46,7 @@ export const createGerberGroupMask = async ({
   bounds: Bounds;
   width: number;
   height: number;
-  layer: "top" | "bottom";
+  layer: LayerRef;
 }): Promise<Uint8Array> => {
   const gerber = getGerberLayerString(elements, layer);
   if (!gerber) return new Uint8Array(width * height);

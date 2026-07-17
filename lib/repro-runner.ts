@@ -5,7 +5,7 @@ import {
 } from "circuit-json-to-gerber";
 import { convertCircuitJsonToPcbSvg } from "circuit-to-svg";
 import type { ReactElement } from "react";
-import type { AnyCircuitElement, PcbTrace } from "circuit-json";
+import type { AnyCircuitElement, LayerRef, PcbTrace } from "circuit-json";
 
 export interface RenderReproOptions {
   renderUntilSettled?: boolean;
@@ -20,7 +20,7 @@ export type GerberLayerMap = Record<string, string>;
 
 export interface CopperBridgeOptions {
   pcbTraceId?: string;
-  layer?: "top" | "bottom";
+  layer?: LayerRef;
   width?: number;
   start: { x: number; y: number };
   end: { x: number; y: number };

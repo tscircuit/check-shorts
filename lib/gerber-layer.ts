@@ -1,15 +1,20 @@
-import type { AnyCircuitElement } from "circuit-json";
+import type { AnyCircuitElement, LayerRef } from "circuit-json";
 import {
   convertSoupToGerberCommands,
   stringifyGerberCommandLayers,
 } from "circuit-json-to-gerber";
 
-export const getGerberLayerName = (layer: "top" | "bottom"): "F_Cu" | "B_Cu" =>
-  layer === "top" ? "F_Cu" : "B_Cu";
+export type CopperGerberLayerName = "F_Cu" | "B_Cu" | `In${number}_Cu`;
+
+export const getGerberLayerName = (layer: LayerRef): CopperGerberLayerName => {
+  if (layer === "top") return "F_Cu";
+  if (layer === "bottom") return "B_Cu";
+  return `In${layer.slice("inner".length)}_Cu` as CopperGerberLayerName;
+};
 
 export const getGerberLayerString = (
   elements: AnyCircuitElement[],
-  layer: "top" | "bottom",
+  layer: LayerRef,
 ): string | undefined => {
   const gerberLayers = stringifyGerberCommandLayers(
     convertSoupToGerberCommands(elements),
@@ -20,7 +25,7 @@ export const getGerberLayerString = (
 
 export const assertGerberLayerCanBeGenerated = (
   circuitJson: AnyCircuitElement[],
-  layer: "top" | "bottom",
+  layer: LayerRef,
 ): void => {
   const gerberLayers = convertSoupToGerberCommands(circuitJson);
   const layerName = getGerberLayerName(layer);

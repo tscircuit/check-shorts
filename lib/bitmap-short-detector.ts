@@ -1,5 +1,5 @@
 import { cju, getBoundsOfPcbElements } from "@tscircuit/circuit-json-util";
-import type { AnyCircuitElement } from "circuit-json";
+import type { AnyCircuitElement, LayerRef } from "circuit-json";
 import {
   boundsIntersection,
   clamp,
@@ -39,7 +39,7 @@ export type {
 
 interface ShortPixelGroup {
   mode: "pcb" | "gerber";
-  layer: "top" | "bottom";
+  layer: LayerRef;
   firstConnectivityKey: string;
   secondConnectivityKey: string;
   pixels: number[];
@@ -220,7 +220,7 @@ const createGroupMask = async ({
   bounds: Bounds;
   width: number;
   height: number;
-  layer: "top" | "bottom";
+  layer: LayerRef;
   mode: "pcb" | "gerber";
 }): Promise<Uint8Array> => {
   if (mode === "gerber") {
@@ -338,7 +338,7 @@ const createBitmapMask = async ({
   boardBounds: Bounds;
   width: number;
   height: number;
-  layer: "top" | "bottom";
+  layer: LayerRef;
   mode: "pcb" | "gerber";
 }): Promise<BitmapMask | null> => {
   const groupBounds = getGroupBounds({ elements, boardBounds });

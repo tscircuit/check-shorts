@@ -1,5 +1,5 @@
 import { convertCircuitJsonToPcbSvg } from "circuit-to-svg";
-import type { AnyCircuitElement } from "circuit-json";
+import type { AnyCircuitElement, LayerRef } from "circuit-json";
 import type { BitmapShort } from "./bitmap-short-detector";
 import { getBoardBounds } from "./bitmap-geometry";
 
@@ -81,14 +81,12 @@ const shortMarkerStroke = "#9b5cff";
 export const createShortDebugSvg = (
   circuitJson: AnyCircuitElement[],
   shorts: BitmapShort[],
-  options: { layer?: "top" | "bottom" } = {},
+  options: { layer?: LayerRef } = {},
 ): string => {
   const shortLayers = new Set(shorts.map((short) => short.layer));
   const layer =
     options.layer ??
-    (shortLayers.size === 1
-      ? ([...shortLayers][0] as "top" | "bottom")
-      : undefined);
+    (shortLayers.size === 1 ? ([...shortLayers][0] as LayerRef) : undefined);
   const baseSvg = convertCircuitJsonToPcbSvg(circuitJson, { layer });
   const seenShortCenters = new Set<string>();
   const overlays = shorts

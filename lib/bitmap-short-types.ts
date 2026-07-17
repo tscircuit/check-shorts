@@ -1,6 +1,8 @@
+import type { LayerRef } from "circuit-json";
+
 export interface BitmapShort {
   mode: "pcb" | "gerber";
-  layer: string;
+  layer: LayerRef;
   firstConnectivityKey: string;
   secondConnectivityKey: string;
   pixelCount: number;
@@ -20,7 +22,7 @@ export interface FindBitmapShortsOptions {
   height?: number;
   micronsPerPixel?: number;
   pixelsPerMm?: number;
-  layer?: "top" | "bottom";
+  layer?: LayerRef;
   mode?: "pcb" | "gerber";
 }
 
