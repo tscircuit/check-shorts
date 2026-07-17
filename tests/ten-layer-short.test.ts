@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type { AnyCircuitElement } from "circuit-json";
 import { findBitmapShorts } from "../lib";
 
-test("detects a short on inner8 of a 10-layer board", async () => {
+test("detects a short on inner8 of a 10-layer board in PCB and Gerber modes", async () => {
   const circuitJson = [
     {
       type: "pcb_board",
@@ -54,14 +54,18 @@ test("detects a short on inner8 of a 10-layer board", async () => {
     },
   ] as AnyCircuitElement[];
 
-  const shorts = await findBitmapShorts(circuitJson, {
-    layer: "inner8",
-    width: 200,
-    height: 200,
-  });
+  for (const mode of ["pcb", "gerber"] as const) {
+    const shorts = await findBitmapShorts(circuitJson, {
+      mode,
+      layer: "inner8",
+      width: 200,
+      height: 200,
+    });
 
-  expect(shorts).toHaveLength(1);
-  expect(shorts[0]?.layer).toBe("inner8");
-  expect(shorts[0]?.firstConnectivityKey).toBe("pcb_trace_horizontal");
-  expect(shorts[0]?.secondConnectivityKey).toBe("pcb_trace_vertical");
+    expect(shorts).toHaveLength(1);
+    expect(shorts[0]?.mode).toBe(mode);
+    expect(shorts[0]?.layer).toBe("inner8");
+    expect(shorts[0]?.firstConnectivityKey).toBe("pcb_trace_horizontal");
+    expect(shorts[0]?.secondConnectivityKey).toBe("pcb_trace_vertical");
+  }
 });
