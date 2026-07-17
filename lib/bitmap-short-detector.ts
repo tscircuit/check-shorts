@@ -1,5 +1,5 @@
 import { cju, getBoundsOfPcbElements } from "@tscircuit/circuit-json-util";
-import type { AnyCircuitElement } from "circuit-json";
+import type { AnyCircuitElement, LayerRef } from "circuit-json";
 import {
   boundsIntersection,
   clamp,
@@ -39,7 +39,7 @@ export type {
 
 interface ShortPixelGroup {
   mode: "pcb" | "gerber";
-  layer: "top" | "bottom";
+  layer: LayerRef;
   firstConnectivityKey: string;
   secondConnectivityKey: string;
   pixels: number[];
@@ -58,6 +58,8 @@ interface BitmapMask {
   rect: PixelRect;
   mask: Uint8Array;
 }
+
+type PcbBoardElement = Extract<AnyCircuitElement, { type: "pcb_board" }>;
 
 const COPPER_POUR_PAINT_PRIORITY = 1;
 const OTHER_COPPER_PAINT_PRIORITY = 2;
@@ -210,6 +212,7 @@ const getGroupBounds = ({
 
 const createGroupMask = async ({
   elements,
+  pcbBoard,
   bounds,
   width,
   height,
@@ -217,14 +220,21 @@ const createGroupMask = async ({
   mode,
 }: {
   elements: CopperElement[];
+  pcbBoard?: PcbBoardElement;
   bounds: Bounds;
   width: number;
   height: number;
-  layer: "top" | "bottom";
+  layer: LayerRef;
   mode: "pcb" | "gerber";
 }): Promise<Uint8Array> => {
   if (mode === "gerber") {
-    return createGerberGroupMask({ elements, bounds, width, height, layer });
+    return createGerberGroupMask({
+      elements: pcbBoard ? [pcbBoard, ...elements] : elements,
+      bounds,
+      width,
+      height,
+      layer,
+    });
   }
 
   return createPcbGroupMask({ elements, bounds, width, height, layer });
@@ -328,6 +338,7 @@ const getBoundsFromPixelRect = ({
 
 const createBitmapMask = async ({
   elements,
+  pcbBoard,
   boardBounds,
   width,
   height,
@@ -335,10 +346,11 @@ const createBitmapMask = async ({
   mode,
 }: {
   elements: CopperElement[];
+  pcbBoard?: PcbBoardElement;
   boardBounds: Bounds;
   width: number;
   height: number;
-  layer: "top" | "bottom";
+  layer: LayerRef;
   mode: "pcb" | "gerber";
 }): Promise<BitmapMask | null> => {
   const groupBounds = getGroupBounds({ elements, boardBounds });
@@ -358,6 +370,7 @@ const createBitmapMask = async ({
   });
   const mask = await createGroupMask({
     elements,
+    pcbBoard,
     bounds: maskBounds,
     width: rect.width,
     height: rect.height,
@@ -477,6 +490,9 @@ export const renderBitmapShortDebug = async (
   const bounds = getBoardBounds(circuitJson);
   const { width, height } = getBitmapDimensions(bounds, options);
   const db = cju(circuitJson);
+  const pcbBoard = circuitJson.find(
+    (element): element is PcbBoardElement => element.type === "pcb_board",
+  );
   const connectivityGroups = buildConnectivityGroups({
     circuitJson,
     connMap,
@@ -506,6 +522,7 @@ export const renderBitmapShortDebug = async (
     const color = getDebugColorForConnectivityKey(key);
     const bitmapMask = await createBitmapMask({
       elements,
+      pcbBoard,
       boardBounds: bounds,
       width,
       height,
@@ -585,6 +602,7 @@ export const renderBitmapShortDebug = async (
 
     const copperPourMask = await createBitmapMask({
       elements: copperPourElements,
+      pcbBoard,
       boardBounds: bounds,
       width,
       height,
@@ -604,6 +622,7 @@ export const renderBitmapShortDebug = async (
 
     const nonPourMask = await createBitmapMask({
       elements: nonPourElements,
+      pcbBoard,
       boardBounds: bounds,
       width,
       height,

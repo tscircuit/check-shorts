@@ -1,11 +1,16 @@
 import { CircuitToCanvasDrawer } from "circuit-to-canvas";
-import type { AnyCircuitElement, PcbRenderLayer, PcbTrace } from "circuit-json";
+import type {
+  AnyCircuitElement,
+  LayerRef,
+  PcbRenderLayer,
+  PcbTrace,
+} from "circuit-json";
 import type { Bounds } from "@tscircuit/math-utils";
 import { BitmapCanvasContext } from "./bitmap-canvas";
 
 const getTraceLayerSegments = (
   trace: PcbTrace,
-  layer: "top" | "bottom",
+  layer: LayerRef,
 ): PcbTrace[] => {
   const segments: PcbTrace[] = [];
   let currentRoute: PcbTrace["route"] = [];
@@ -39,7 +44,7 @@ const getTraceLayerSegments = (
 
 const getPcbLayerElements = (
   elements: AnyCircuitElement[],
-  layer: "top" | "bottom",
+  layer: LayerRef,
 ): AnyCircuitElement[] => {
   const layerElements: AnyCircuitElement[] = [];
 
@@ -65,12 +70,11 @@ export const createPcbGroupMask = ({
   bounds: Bounds;
   width: number;
   height: number;
-  layer: "top" | "bottom";
+  layer: LayerRef;
 }): Uint8Array => {
   const ctx = new BitmapCanvasContext(width, height);
   const drawer = new CircuitToCanvasDrawer(ctx);
-  const renderLayer: PcbRenderLayer =
-    layer === "top" ? "top_copper" : "bottom_copper";
+  const renderLayer = `${layer}_copper` as PcbRenderLayer;
   const layerElements = getPcbLayerElements(elements, layer);
 
   drawer.setCameraBounds(bounds);
