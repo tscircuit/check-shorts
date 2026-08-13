@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { renderBitmapShortDebug } from "lib/index";
-import type { BitmapShortDebugRender } from "lib/index";
 import {
   writeOrCompareBitmapDebugSnapshot,
   writeOrCompareCircuitJsonSvgSnapshot,
@@ -36,18 +35,22 @@ test("renders a connected inner-layer trace and copper pour in PCB mode", async 
   await writeOrCompareCircuitJsonSvgSnapshot(import.meta.path, circuitJson, {
     layer: "inner1",
   });
-  let debugRender: BitmapShortDebugRender | undefined;
   let result:
     | { status: "error"; message: string }
     | { status: "success"; shortCount: number };
 
   try {
-    debugRender = await renderBitmapShortDebug(circuitJson, {
+    const debugRender = await renderBitmapShortDebug(circuitJson, {
       mode: "pcb",
       layer: "inner1",
       width: 220,
       height: 176,
     });
+    await writeOrCompareBitmapDebugSnapshot(
+      import.meta.path,
+      "pcb-bitmap",
+      debugRender,
+    );
     result = { status: "success", shortCount: debugRender.shorts.length };
   } catch (error) {
     result = {
@@ -58,16 +61,8 @@ test("renders a connected inner-layer trace and copper pour in PCB mode", async 
 
   expect(result).toMatchInlineSnapshot(`
     {
-      "message": "layerCanvas.getContext is not a function. (In 'layerCanvas.getContext(\"2d\")', 'layerCanvas.getContext' is undefined)",
-      "status": "error",
+      "shortCount": 0,
+      "status": "success",
     }
   `);
-
-  if (debugRender) {
-    await writeOrCompareBitmapDebugSnapshot(
-      import.meta.path,
-      "pcb-bitmap",
-      debugRender,
-    );
-  }
 });

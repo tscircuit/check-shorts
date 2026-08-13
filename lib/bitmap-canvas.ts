@@ -23,6 +23,12 @@ type PathPart = PolygonPath | CirclePath;
 
 type CanvasStyle = string | CanvasGradient | CanvasPattern;
 
+const createBitmapCanvasSurface = (width: number, height: number) =>
+  Object.assign(Object.create(null), { width, height }) as {
+    width: number;
+    height: number;
+  };
+
 const transformPoint = (matrix: Matrix, point: Point): Point =>
   applyToPoint(matrix, point) as Point;
 
@@ -76,7 +82,10 @@ export class BitmapCanvasContext {
   private currentPolygon: Point[] | null = null;
 
   constructor(width: number, height: number) {
-    this.canvas = { width, height };
+    // This context does not support offscreen drawing layers. A null-prototype
+    // surface prevents renderers from mistaking Object for a canvas constructor
+    // and lets them use their custom-context fallback.
+    this.canvas = createBitmapCanvasSurface(width, height);
     this.pixels = new Uint8Array(width * height);
   }
 
