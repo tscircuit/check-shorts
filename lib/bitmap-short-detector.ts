@@ -54,12 +54,12 @@ interface PixelRect {
   height: number;
 }
 
-interface BitmapMask {
+export interface BitmapMask {
   rect: PixelRect;
   mask: Uint8Array;
 }
 
-type PcbBoardElement = Extract<AnyCircuitElement, { type: "pcb_board" }>;
+export type PcbBoardElement = Extract<AnyCircuitElement, { type: "pcb_board" }>;
 
 const COPPER_POUR_PAINT_PRIORITY = 1;
 const OTHER_COPPER_PAINT_PRIORITY = 2;
@@ -240,7 +240,7 @@ const createGroupMask = async ({
   return createPcbGroupMask({ elements, bounds, width, height, layer });
 };
 
-const getBitmapDimensions = (
+export const getBitmapDimensions = (
   bounds: Bounds,
   options: FindBitmapShortsOptions,
 ): { width: number; height: number } => {
@@ -336,7 +336,7 @@ const getBoundsFromPixelRect = ({
   };
 };
 
-const createBitmapMask = async ({
+export const createBitmapMask = async ({
   elements,
   pcbBoard,
   boardBounds,
