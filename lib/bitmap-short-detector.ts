@@ -27,6 +27,7 @@ import { createPcbGroupMask } from "./pcb-mask";
 import type {
   BitmapShort,
   BitmapShortDebugRender,
+  BitmapShortProgressEvent,
   FindBitmapShortsOptions,
 } from "./bitmap-short-types";
 
@@ -34,6 +35,7 @@ export type {
   BitmapShort,
   BitmapShortDebugLegendEntry,
   BitmapShortDebugRender,
+  BitmapShortProgressEvent,
   FindBitmapShortsOptions,
 } from "./bitmap-short-types";
 
@@ -60,6 +62,12 @@ interface BitmapMask {
 }
 
 type PcbBoardElement = Extract<AnyCircuitElement, { type: "pcb_board" }>;
+type BitmapShortProgressEventDetails =
+  BitmapShortProgressEvent extends infer Event
+    ? Event extends BitmapShortProgressEvent
+      ? Omit<Event, "mode" | "layer">
+      : never
+    : never;
 
 const COPPER_POUR_PAINT_PRIORITY = 1;
 const OTHER_COPPER_PAINT_PRIORITY = 2;
@@ -486,6 +494,12 @@ export const renderBitmapShortDebug = async (
 ): Promise<BitmapShortDebugRender> => {
   const layer = options.layer ?? "top";
   const mode = options.mode ?? "pcb";
+  const reportProgress = (event: BitmapShortProgressEventDetails): void => {
+    options.onProgress?.({ ...event, mode, layer } as BitmapShortProgressEvent);
+  };
+
+  reportProgress({ phase: "preparing" });
+
   const connMap = getFullConnectivityMapFromCircuitJson(circuitJson);
   const bounds = getBoardBounds(circuitJson);
   const { width, height } = getBitmapDimensions(bounds, options);
@@ -518,7 +532,19 @@ export const renderBitmapShortDebug = async (
   );
   const legend = buildBitmapLegend({ sortedConnectivityGroups, db });
 
-  for (const [key, elements] of sortedConnectivityGroups) {
+  for (const [
+    groupIndex,
+    [key, elements],
+  ] of sortedConnectivityGroups.entries()) {
+    reportProgress({
+      phase: "rasterizing",
+      width,
+      height,
+      completedGroups: groupIndex,
+      totalGroups: sortedConnectivityGroups.length,
+      currentConnectivityKey: key,
+    });
+
     const color = getDebugColorForConnectivityKey(key);
     const bitmapMask = await createBitmapMask({
       elements,
@@ -641,6 +667,15 @@ export const renderBitmapShortDebug = async (
     }
   }
 
+  reportProgress({
+    phase: "rasterizing",
+    width,
+    height,
+    completedGroups: sortedConnectivityGroups.length,
+    totalGroups: sortedConnectivityGroups.length,
+  });
+  reportProgress({ phase: "detecting" });
+
   const shorts = createShortsFromPixelGroups({
     shortPixelGroups: [...shortPixelGroupMap.values()],
     bounds,
@@ -650,6 +685,8 @@ export const renderBitmapShortDebug = async (
 
   overlayPcbPortMarkers({ circuitJson, bounds, width, height, rgba });
   overlayShortMarkers({ shorts, bounds, width, height, rgba });
+
+  reportProgress({ phase: "complete", shortsFound: shorts.length });
 
   return { width, height, rgba, shorts, legend };
 };
