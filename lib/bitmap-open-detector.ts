@@ -335,7 +335,59 @@ export const findBitmapOpens = async (
     ),
   ].sort((a, b) => a.localeCompare(b));
 
+  // Component-internal connections are BRIDGES, exactly like vias. A via joins
+  // islands across layers; a component body joins the islands its
+  // internally-connected pads sit in (switch poles, relay contacts, bridged
+  // solder jumpers, multi-leg terminals). Without this, every such component is
+  // reported as an open: the connectivity map unions internally-connected pins
+  // into one net whose copper is legitimately disjoint — the join is inside the
+  // part, not on the board. Only DECLARED internal connections bridge; a plain
+  // same-net two-terminal part (e.g. a 0-ohm net tie) is indistinguishable in
+  // circuit JSON from a genuinely unrouted same-net pin pair, so it is not
+  // silently excused here (see ignoreNets for the escape hatch).
+  const internalConnectionGroups: string[][] = [];
+  for (const element of circuitJson) {
+    if (
+      element.type === "source_component" &&
+      "internally_connected_source_port_ids" in element &&
+      Array.isArray(element.internally_connected_source_port_ids)
+    ) {
+      for (const group of element.internally_connected_source_port_ids) {
+        if (Array.isArray(group) && group.length >= 2) {
+          internalConnectionGroups.push(group);
+        }
+      }
+    }
+    if (
+      (element as { type: string }).type ===
+      "source_component_internal_connection"
+    ) {
+      const group = (element as { source_port_ids?: string[] })
+        .source_port_ids;
+      if (Array.isArray(group) && group.length >= 2) {
+        internalConnectionGroups.push(group);
+      }
+    }
+  }
+
+  // Nets suppressed by name (ignoreNets): resolve each named source_net to its
+  // (merged) connectivity key so the whole net is skipped.
+  const ignoredNetNames = new Set(options.ignoreNets ?? []);
+  const ignoredRootKeys = new Set<string>();
+  if (ignoredNetNames.size > 0) {
+    for (const element of circuitJson) {
+      if (element.type !== "source_net") continue;
+      if (!ignoredNetNames.has(element.name)) continue;
+      const key =
+        connMap.getNetConnectedToId(element.source_net_id) ??
+        element.subcircuit_connectivity_map_key ??
+        element.source_net_id;
+      ignoredRootKeys.add(groupMerge.find(key));
+    }
+  }
+
   for (const connectivityKey of connectivityKeys) {
+    if (ignoredRootKeys.has(groupMerge.find(connectivityKey))) continue;
     const { find, union } = makeUnionFind();
     const islandsById = new Map<string, BitmapOpenIsland>();
     // Which island (per layer) each layer-crossing element landed in, so the
@@ -344,6 +396,9 @@ export const findBitmapOpens = async (
     // Which island each PAD (smtpad / plated hole) landed in. Pads are the
     // things that must end up connected; pours and traces are just the means.
     const padIslands = new Map<string, string[]>();
+    // Reverse lookup so declared internal connections (source_port groups) can
+    // be resolved to the pads — and therefore islands — they live on.
+    const padElementIdBySourcePortId = new Map<string, string>();
     const allElements: CopperElement[] = [];
 
     for (const layer of layers) {
@@ -454,6 +509,37 @@ export const findBitmapOpens = async (
           const seen = padIslands.get(elementId) ?? [];
           if (islandId) seen.push(islandId);
           padIslands.set(elementId, seen);
+
+          // Resolve the pad's source_port for internal-connection bridging.
+          // Prefer the pcb_port link; fall back to component + port hints (a
+          // pad on an unrouted net can have no pcb_port at all).
+          const pcbPortId =
+            "pcb_port_id" in element ? element.pcb_port_id : undefined;
+          let sourcePortId = pcbPortId
+            ? db.pcb_port.get(pcbPortId)?.source_port_id
+            : undefined;
+          if (!sourcePortId) {
+            const pcbComponentId =
+              "pcb_component_id" in element
+                ? element.pcb_component_id
+                : undefined;
+            const portHints =
+              "port_hints" in element ? (element.port_hints ?? []) : [];
+            const sourceComponentId = pcbComponentId
+              ? db.pcb_component.get(pcbComponentId)?.source_component_id
+              : undefined;
+            if (sourceComponentId) {
+              for (const hint of portHints) {
+                sourcePortId = sourcePortsByComponentAndName.get(
+                  `${sourceComponentId}:${hint}`,
+                );
+                if (sourcePortId) break;
+              }
+            }
+          }
+          if (sourcePortId) {
+            padElementIdBySourcePortId.set(sourcePortId, elementId);
+          }
         }
       }
     }
@@ -461,6 +547,23 @@ export const findBitmapOpens = async (
     for (const islandIds of crossLayerElementIslands.values()) {
       for (let i = 1; i < islandIds.length; i++) {
         union(islandIds[0]!, islandIds[i]!);
+      }
+    }
+
+    // Bridge islands joined through a component body: for every declared
+    // internal connection whose pads are on this net, their islands are one
+    // conductor. (A pad with no copper at all cannot be bridged — it stays a
+    // distinct group, so bridging never hides a genuinely missing pad.)
+    for (const group of internalConnectionGroups) {
+      const groupIslandIds: string[] = [];
+      for (const sourcePortId of group) {
+        const padElementId = padElementIdBySourcePortId.get(sourcePortId);
+        if (!padElementId) continue;
+        const islandIds = padIslands.get(padElementId);
+        if (islandIds?.[0]) groupIslandIds.push(islandIds[0]);
+      }
+      for (let i = 1; i < groupIslandIds.length; i++) {
+        union(groupIslandIds[0]!, groupIslandIds[i]!);
       }
     }
 

@@ -41,4 +41,14 @@ export interface FindBitmapOpensOptions {
   pixelsPerMm?: number;
   layer?: LayerRef;
   mode?: "pcb" | "gerber";
+  /**
+   * Net names to exclude from open detection.
+   *
+   * For nets that are joined off-board by design — mounting holes bonded
+   * through a metal enclosure, signals joined by a cable or mating connector —
+   * the copper is legitimately split and the split is not a fault. There is no
+   * way to express "joined outside the board" in circuit JSON, so the escape
+   * hatch is explicit suppression by net name.
+   */
+  ignoreNets?: string[];
 }
