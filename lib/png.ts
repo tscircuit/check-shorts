@@ -99,17 +99,48 @@ export const encodeRgbaPng = ({
   ]);
 };
 
-const getLegendLabel = (entry: BitmapShortDebugLegendEntry): string => {
-  const labels =
-    entry.labels.length > 0 ? entry.labels.join(",") : entry.connectivityKey;
-  return labels.length > 36 ? `${labels.slice(0, 33)}...` : labels;
-};
-
 const markerLegend = [
   { color: "#ff00ff", label: "Short marker" },
   { color: "#ffa500", label: "PCB port" },
   { color: "#000000", label: "Unassigned" },
 ] as const;
+
+const getGlyphAdvance = (character: string): number =>
+  glyphAdvanceRatio[character] ??
+  (character === " " ? spaceWidthRatio : glyphWidthRatio);
+
+const getAlphabetTextWidth = (text: string, size: number): number => {
+  let width = 0;
+  for (const character of text) {
+    width += getGlyphAdvance(character) * size;
+  }
+  return width;
+};
+
+export const getLegendLabel = (
+  entry: BitmapShortDebugLegendEntry,
+  maxWidth: number,
+  size = 16,
+): string => {
+  const label =
+    entry.labels.length > 0 ? entry.labels.join(",") : entry.connectivityKey;
+  if (getAlphabetTextWidth(label, size) <= maxWidth) return label;
+
+  const ellipsis = "...";
+  let fittedLabel = "";
+  let fittedWidth = getAlphabetTextWidth(ellipsis, size);
+
+  if (fittedWidth > maxWidth) return "";
+
+  for (const character of label) {
+    const characterWidth = getGlyphAdvance(character) * size;
+    if (fittedWidth + characterWidth > maxWidth) break;
+    fittedLabel += character;
+    fittedWidth += characterWidth;
+  }
+
+  return `${fittedLabel}${ellipsis}`;
+};
 
 const createAlphabetTextSvg = ({
   text,
@@ -132,9 +163,7 @@ const createAlphabetTextSvg = ({
     if (path) {
       paths.push(`<path d="${path}" transform="translate(${cursorX} 0)"/>`);
     }
-    cursorX +=
-      glyphAdvanceRatio[character] ??
-      (character === " " ? spaceWidthRatio : glyphWidthRatio);
+    cursorX += getGlyphAdvance(character);
   }
 
   const renderedSize =
@@ -170,17 +199,19 @@ const createBitmapLegendSvg = ({
       maxWidth: width - 42,
     })}`,
     ),
-    ...legend.map(
-      (entry, index) => `
+    ...legend.map((entry, index) => {
+      const labelMaxWidth = width - 42;
+      const labelSize = 16;
+      return `
     <rect x="10" y="${headerHeight + (markerLegend.length + index) * rowHeight + 3}" width="14" height="10" rx="1" fill="rgb(${entry.color.join(",")})"/>
     ${createAlphabetTextSvg({
-      text: getLegendLabel(entry),
+      text: getLegendLabel(entry, labelMaxWidth, labelSize),
       x: 32,
       top: headerHeight + (markerLegend.length + index) * rowHeight + 2,
-      size: 16,
-      maxWidth: width - 42,
-    })}`,
-    ),
+      size: labelSize,
+      maxWidth: labelMaxWidth,
+    })}`;
+    }),
   ].join("");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
