@@ -538,10 +538,27 @@ export const renderBitmapShortDebug = async (
       const globalPixelIndex =
         (bitmapMask.rect.y + localY) * width + bitmapMask.rect.x + localX;
 
-      const existingOwner = pixelOwners[globalPixelIndex];
-      if (existingOwner && existingOwner !== key) {
+      // Copper can touch at an edge or corner without covering the same
+      // pixel center. Compare the 8-connected neighborhood as well as the
+      // pixel itself; this keeps boundary contact detection in bitmap space.
+      // An empty pixel between the groups still separates them.
+      const x = bitmapMask.rect.x + localX;
+      const y = bitmapMask.rect.y + localY;
+      const contactingOwners = new Set<string>();
+      for (let dy = -1; dy <= 1; dy++) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= height) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          if (nx < 0 || nx >= width) continue;
+          const owner = pixelOwners[ny * width + nx];
+          if (owner && owner !== key) contactingOwners.add(owner);
+        }
+      }
+
+      for (const owner of contactingOwners) {
         const [firstConnectivityKey, secondConnectivityKey] = [
-          existingOwner,
+          owner,
           key,
         ].sort();
         const shortKey = `${layer}:${firstConnectivityKey}:${secondConnectivityKey}`;
@@ -564,7 +581,8 @@ export const renderBitmapShortDebug = async (
             secondOwnerLabels: getUniqueOwnerLabels(secondElements, db),
           });
         }
-      } else if (!existingOwner) {
+      }
+      if (!pixelOwners[globalPixelIndex]) {
         pixelOwners[globalPixelIndex] = key;
       }
     }
