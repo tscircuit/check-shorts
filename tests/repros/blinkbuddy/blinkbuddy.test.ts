@@ -50,7 +50,9 @@ test("BlinkBuddy gerber repro finds separate top copper-pour contacts", async ()
 
   expect(topDebug.width).toBe(2343);
   expect(topDebug.height).toBe(1715);
-  expect(topDebug.shorts).toHaveLength(3);
+  // Edge contact joins the two previously isolated overlap spots along
+  // the right-hand VBUS pad into one continuous short region.
+  expect(topDebug.shorts).toHaveLength(2);
   expect(gerberTopShorts).toEqual(topDebug.shorts);
   expect(bottomDebug.shorts).toEqual([]);
 
@@ -60,12 +62,10 @@ test("BlinkBuddy gerber repro finds separate top copper-pour contacts", async ()
     expect(labels).toContain("ESD1.VBUS");
   }
 
-  expect(topDebug.shorts[0]?.center.x).toBeCloseTo(26.43, 1);
-  expect(topDebug.shorts[0]?.center.y).toBeCloseTo(22.38, 1);
-  expect(topDebug.shorts[1]?.center.x).toBeCloseTo(26.57, 1);
-  expect(topDebug.shorts[1]?.center.y).toBeCloseTo(23.29, 1);
-  expect(topDebug.shorts[2]?.center.x).toBeCloseTo(21.55, 1);
-  expect(topDebug.shorts[2]?.center.y).toBeCloseTo(23.38, 1);
+  expect(topDebug.shorts[0]?.center.x).toBeCloseTo(26.51, 1);
+  expect(topDebug.shorts[0]?.center.y).toBeCloseTo(22.71, 1);
+  expect(topDebug.shorts[1]?.center.x).toBeCloseTo(21.53, 1);
+  expect(topDebug.shorts[1]?.center.y).toBeCloseTo(23.4, 1);
   await writeOrCompareSvgSnapshot(
     import.meta.path,
     createShortDebugSvg(circuitJson, topDebug.shorts, { layer: "top" }),

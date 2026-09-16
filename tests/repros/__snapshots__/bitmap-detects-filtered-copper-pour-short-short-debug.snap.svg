@@ -6,7 +6,7 @@
   </g>
   <g data-type="short-debug" data-mode="gerber" data-layer="top">
     <title>SHORT 2: TP_SHORT.pin1 &lt;-&gt; copperpour:GND</title>
-    <circle cx="399.13" cy="299.24" r="14" fill="none" stroke="#9b5cff" stroke-width="4"/>
-    <circle cx="399.13" cy="299.24" r="6" fill="none" stroke="#9b5cff" stroke-width="3"/>
+    <circle cx="399.13" cy="299.27" r="14" fill="none" stroke="#9b5cff" stroke-width="4"/>
+    <circle cx="399.13" cy="299.27" r="6" fill="none" stroke="#9b5cff" stroke-width="3"/>
   </g>
 </svg>
