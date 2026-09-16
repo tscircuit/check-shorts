@@ -14,6 +14,10 @@ import {
   getUniqueOwnerLabels,
 } from "./bitmap-copper-groups";
 import {
+  type BitmapConnectivityKey,
+  getAdjacentPixelOwners,
+} from "./bitmap-contact-pixels";
+import {
   buildBitmapLegend,
   getDebugColorForConnectivityKey,
   overlayPcbPortMarkers,
@@ -42,7 +46,8 @@ interface ShortPixelGroup {
   layer: LayerRef;
   firstConnectivityKey: string;
   secondConnectivityKey: string;
-  pixels: number[];
+  overlapPixels: Set<number>;
+  adjacentPixels: Set<number>;
   firstOwnerLabels: string[];
   secondOwnerLabels: string[];
 }
@@ -412,6 +417,63 @@ const paintBitmapMask = ({
   }
 };
 
+const recordShortPixel = ({
+  firstConnectivityKey,
+  secondConnectivityKey,
+  globalPixelIndex,
+  contactKind,
+  layer,
+  mode,
+  connectivityGroups,
+  db,
+  shortPixelGroupMap,
+}: {
+  firstConnectivityKey: BitmapConnectivityKey;
+  secondConnectivityKey: BitmapConnectivityKey;
+  globalPixelIndex: number;
+  contactKind: "overlap" | "adjacent";
+  layer: LayerRef;
+  mode: "pcb" | "gerber";
+  connectivityGroups: Map<BitmapConnectivityKey, CopperElement[]>;
+  db: ReturnType<typeof cju>;
+  shortPixelGroupMap: Map<string, ShortPixelGroup>;
+}): void => {
+  const sortedConnectivityKeys = [
+    firstConnectivityKey,
+    secondConnectivityKey,
+  ].sort();
+  const sortedFirstConnectivityKey = sortedConnectivityKeys[0]!;
+  const sortedSecondConnectivityKey = sortedConnectivityKeys[1]!;
+  const shortKey = `${layer}:${sortedFirstConnectivityKey}:${sortedSecondConnectivityKey}`;
+  const existingShortPixelGroup = shortPixelGroupMap.get(shortKey);
+
+  if (existingShortPixelGroup) {
+    const contactPixels =
+      contactKind === "overlap"
+        ? existingShortPixelGroup.overlapPixels
+        : existingShortPixelGroup.adjacentPixels;
+    contactPixels.add(globalPixelIndex);
+    return;
+  }
+
+  const firstElements =
+    connectivityGroups.get(sortedFirstConnectivityKey) ?? [];
+  const secondElements =
+    connectivityGroups.get(sortedSecondConnectivityKey) ?? [];
+  shortPixelGroupMap.set(shortKey, {
+    mode,
+    layer,
+    firstConnectivityKey: sortedFirstConnectivityKey,
+    secondConnectivityKey: sortedSecondConnectivityKey,
+    overlapPixels:
+      contactKind === "overlap" ? new Set([globalPixelIndex]) : new Set(),
+    adjacentPixels:
+      contactKind === "adjacent" ? new Set([globalPixelIndex]) : new Set(),
+    firstOwnerLabels: getUniqueOwnerLabels(firstElements, db),
+    secondOwnerLabels: getUniqueOwnerLabels(secondElements, db),
+  });
+};
+
 const createShortsFromPixelGroups = ({
   shortPixelGroups,
   bounds,
@@ -426,7 +488,13 @@ const createShortsFromPixelGroups = ({
   const shorts: BitmapShort[] = [];
 
   for (const shortPixelGroup of shortPixelGroups) {
-    const unvisitedPixels = new Set(shortPixelGroup.pixels);
+    // Preserve the more precise overlap pixels when they exist. Adjacency is a
+    // fallback for zero-width edge or point contacts lost during rasterization.
+    const contactPixels =
+      shortPixelGroup.overlapPixels.size > 0
+        ? shortPixelGroup.overlapPixels
+        : shortPixelGroup.adjacentPixels;
+    const unvisitedPixels = new Set(contactPixels);
 
     while (unvisitedPixels.size > 0) {
       const firstPixel = unvisitedPixels.values().next().value as number;
@@ -504,7 +572,9 @@ export const renderBitmapShortDebug = async (
     assertGerberLayerCanBeGenerated(circuitJson, layer);
   }
 
-  const pixelOwners = new Array<string | undefined>(width * height);
+  const pixelOwners = new Array<BitmapConnectivityKey | undefined>(
+    width * height,
+  );
   const shortPixelGroupMap = new Map<string, ShortPixelGroup>();
   const rgba = new Uint8Array(width * height * 4);
   const paintPriorities = new Uint8Array(width * height);
@@ -540,31 +610,42 @@ export const renderBitmapShortDebug = async (
 
       const existingOwner = pixelOwners[globalPixelIndex];
       if (existingOwner && existingOwner !== key) {
-        const [firstConnectivityKey, secondConnectivityKey] = [
-          existingOwner,
-          key,
-        ].sort();
-        const shortKey = `${layer}:${firstConnectivityKey}:${secondConnectivityKey}`;
-        const existingShortPixelGroup = shortPixelGroupMap.get(shortKey);
+        recordShortPixel({
+          firstConnectivityKey: existingOwner,
+          secondConnectivityKey: key,
+          globalPixelIndex,
+          contactKind: "overlap",
+          layer,
+          mode,
+          connectivityGroups,
+          db,
+          shortPixelGroupMap,
+        });
+      }
 
-        if (existingShortPixelGroup) {
-          existingShortPixelGroup.pixels.push(globalPixelIndex);
-        } else {
-          const firstElements =
-            connectivityGroups.get(firstConnectivityKey) ?? [];
-          const secondElements =
-            connectivityGroups.get(secondConnectivityKey) ?? [];
-          shortPixelGroupMap.set(shortKey, {
-            mode,
-            layer,
-            firstConnectivityKey,
-            secondConnectivityKey,
-            pixels: [globalPixelIndex],
-            firstOwnerLabels: getUniqueOwnerLabels(firstElements, db),
-            secondOwnerLabels: getUniqueOwnerLabels(secondElements, db),
-          });
-        }
-      } else if (!existingOwner) {
+      const adjacentOwners = getAdjacentPixelOwners({
+        pixelIndex: globalPixelIndex,
+        width,
+        height,
+        pixelOwners,
+      });
+
+      for (const adjacentOwner of adjacentOwners) {
+        if (adjacentOwner === key) continue;
+        recordShortPixel({
+          firstConnectivityKey: adjacentOwner,
+          secondConnectivityKey: key,
+          globalPixelIndex,
+          contactKind: "adjacent",
+          layer,
+          mode,
+          connectivityGroups,
+          db,
+          shortPixelGroupMap,
+        });
+      }
+
+      if (!existingOwner) {
         pixelOwners[globalPixelIndex] = key;
       }
     }
