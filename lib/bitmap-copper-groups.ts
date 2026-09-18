@@ -84,10 +84,14 @@ const getCopperElementGlobalConnectivityKey = (
   }
 
   if (element.type === "pcb_trace") {
-    return element.source_trace_id
-      ? (connectedIdToKey.get(element.source_trace_id) ??
+    // Footprint bridges can connect through PCB ports without a source trace.
+    return (
+      connectedIdToKey.get(element.pcb_trace_id) ??
+      (element.source_trace_id
+        ? (connectedIdToKey.get(element.source_trace_id) ??
           element.source_trace_id)
-      : element.pcb_trace_id;
+        : element.pcb_trace_id)
+    );
   }
 
   if (element.type === "pcb_via") {
