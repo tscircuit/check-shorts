@@ -27,3 +27,10 @@ them separate; same-net copper and different layers are not reported as shorts.
 The default resolution is 35 microns per pixel. Gaps smaller than the bitmap
 resolution may disappear during rasterization. Use `pixelsPerMm` (or
 `tsci check shorts --pixels-per-mm`) to resolve smaller clearances.
+
+## Open circuits are a separate check
+
+A zero-short result does not establish continuity within each net. See the
+[literal pedometer missing-via repro](tests/repros/pedometer/README.md) for a
+four-layer board with two disconnected PMID islands, a test-only physical
+connectivity probe, and zoomed original/repair snapshots.
