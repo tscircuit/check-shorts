@@ -54,8 +54,76 @@ test("captured bottom route and both through-vias belong to GND without a source
   );
 });
 
-// Remove .failing when the checker resolves the PCB trace through its
-// connectivity map instead of treating its missing source_trace_id as a new net.
-test.failing("same-GND bottom route should not report shorts at its via endpoints", async () => {
-  expect(await findBitmapShorts(circuitJson, options)).toEqual([]);
-});
+for (const mode of ["pcb", "gerber"] as const) {
+  test(`${mode}: same-GND bottom route does not report shorts at its via endpoints`, async () => {
+    expect(await findBitmapShorts(circuitJson, { ...options, mode })).toEqual(
+      [],
+    );
+  });
+
+  test(`${mode}: a route with no endpoint identity remains separate copper`, async () => {
+    const isolatedCircuitJson = structuredClone(circuitJson);
+    const isolatedTrace = cju(isolatedCircuitJson)
+      .pcb_trace.list()
+      .find((trace) => !trace.source_trace_id)!;
+    for (const point of isolatedTrace.route) {
+      if (point.route_type !== "wire") continue;
+      delete point.start_pcb_port_id;
+      delete point.end_pcb_port_id;
+    }
+
+    const shorts = await findBitmapShorts(isolatedCircuitJson, {
+      ...options,
+      mode,
+    });
+    expect(shorts).toHaveLength(2);
+    for (const short of shorts) {
+      expect([...short.firstOwnerLabels, ...short.secondOwnerLabels]).toContain(
+        isolatedTrace.pcb_trace_id,
+      );
+    }
+  });
+
+  test(`${mode}: a different-net via touching the GND route still reports a short`, async () => {
+    const signalVia = {
+      type: "pcb_via" as const,
+      pcb_via_id: "pcb_via_signal",
+      source_net_id: "source_net_signal",
+      x: -1,
+      y: 0,
+      hole_diameter: 0.3,
+      outer_diameter: 0.45,
+      layers: cju(circuitJson).pcb_via.list()[0].layers,
+      from_layer: "top" as const,
+      to_layer: "bottom" as const,
+    };
+    const shortedCircuitJson: AnyCircuitElement[] = [
+      ...circuitJson,
+      {
+        type: "source_net",
+        source_net_id: "source_net_signal",
+        name: "SIGNAL",
+        member_source_group_ids: [],
+      },
+      signalVia,
+    ];
+    const shorts = await findBitmapShorts(shortedCircuitJson, {
+      ...options,
+      mode,
+    });
+    const signalShorts = shorts.filter((short) =>
+      [...short.firstOwnerLabels, ...short.secondOwnerLabels].includes(
+        signalVia.pcb_via_id,
+      ),
+    );
+    expect(signalShorts.length).toBeGreaterThan(0);
+    const groundTrace = cju(circuitJson)
+      .pcb_trace.list()
+      .find((trace) => !trace.source_trace_id)!;
+    for (const short of signalShorts) {
+      expect([...short.firstOwnerLabels, ...short.secondOwnerLabels]).toContain(
+        groundTrace.pcb_trace_id,
+      );
+    }
+  });
+}
