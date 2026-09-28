@@ -1,6 +1,9 @@
 import { cju } from "@tscircuit/circuit-json-util";
 import type { AnyCircuitElement, LayerRef } from "circuit-json";
-import type { ConnectivityMap } from "circuit-json-to-connectivity-map";
+import {
+  ConnectivityMap,
+  findConnectedNetworks,
+} from "circuit-json-to-connectivity-map";
 
 export type CopperElement =
   | Extract<AnyCircuitElement, { type: "pcb_copper_pour" }>
@@ -35,22 +38,6 @@ const isCopperElementOnLayer = (
   return element.layer === layer;
 };
 
-const getConnectedIdToGlobalKeyMap = (
-  connMap: ConnectivityMap,
-): Map<string, string> => {
-  const connectedIdToKey = new Map<string, string>();
-
-  for (const [globalConnectivityKey, connectedIds] of Object.entries(
-    connMap.netMap,
-  )) {
-    for (const connectedId of connectedIds) {
-      connectedIdToKey.set(connectedId, globalConnectivityKey);
-    }
-  }
-
-  return connectedIdToKey;
-};
-
 const getSourceNetGlobalConnectivityKey = (
   sourceNetId: string,
   connMap: ConnectivityMap,
@@ -68,7 +55,6 @@ const getSourceNetGlobalConnectivityKey = (
 const getCopperElementGlobalConnectivityKey = (
   element: CopperElement,
   connMap: ConnectivityMap,
-  connectedIdToKey: Map<string, string>,
   db: ReturnType<typeof cju>,
 ): string | undefined => {
   if (element.type === "pcb_copper_pour") {
@@ -79,27 +65,29 @@ const getCopperElementGlobalConnectivityKey = (
 
   if (element.type === "pcb_smtpad") {
     return element.pcb_port_id
-      ? (connectedIdToKey.get(element.pcb_port_id) ?? element.pcb_port_id)
+      ? (connMap.getNetConnectedToId(element.pcb_port_id) ??
+          element.pcb_port_id)
       : element.pcb_smtpad_id;
   }
 
   if (element.type === "pcb_trace") {
     return element.source_trace_id
-      ? (connectedIdToKey.get(element.source_trace_id) ??
+      ? (connMap.getNetConnectedToId(element.source_trace_id) ??
           element.source_trace_id)
-      : (connectedIdToKey.get(element.pcb_trace_id) ?? element.pcb_trace_id);
+      : (connMap.getNetConnectedToId(element.pcb_trace_id) ??
+          element.pcb_trace_id);
   }
 
   if (element.type === "pcb_via") {
     return (
-      connectedIdToKey.get(element.pcb_via_id) ??
+      connMap.getNetConnectedToId(element.pcb_via_id) ??
       element.subcircuit_connectivity_map_key ??
       element.pcb_via_id
     );
   }
 
   return element.pcb_port_id
-    ? (connectedIdToKey.get(element.pcb_port_id) ?? element.pcb_port_id)
+    ? (connMap.getNetConnectedToId(element.pcb_port_id) ?? element.pcb_port_id)
     : element.pcb_plated_hole_id;
 };
 
@@ -114,19 +102,27 @@ export const buildConnectivityGroups = ({
   db: ReturnType<typeof cju>;
   layer: LayerRef;
 }): Map<string, CopperElement[]> => {
-  const connectedIdToKey = getConnectedIdToGlobalKeyMap(connMap);
+  const viaPortConnections = db.pcb_via
+    .list()
+    .flatMap((via) =>
+      via.pcb_port_ids?.length ? [[via.pcb_via_id, ...via.pcb_port_ids]] : [],
+    );
+  if (viaPortConnections.length > 0) {
+    connMap = new ConnectivityMap(
+      findConnectedNetworks([
+        ...Object.values(connMap.netMap),
+        ...viaPortConnections,
+      ]),
+    );
+  }
+
   const groups = new Map<string, CopperElement[]>();
 
   for (const element of circuitJson) {
     if (!isCopperElement(element)) continue;
     if (!isCopperElementOnLayer(element, layer)) continue;
 
-    const key = getCopperElementGlobalConnectivityKey(
-      element,
-      connMap,
-      connectedIdToKey,
-      db,
-    );
+    const key = getCopperElementGlobalConnectivityKey(element, connMap, db);
     if (!key) continue;
 
     const group = groups.get(key) ?? [];
