@@ -9,7 +9,7 @@ import { writeOrCompareSvgSnapshot } from "tests/fixtures/bitmap-snapshot";
 // Unmodified output of the two-capacitor/two-via circuit in core PR #4002,
 // rendered with tscircuit 0.0.2646 / core 0.0.1971. The keepout forces the
 // GND via-to-via route onto bottom. No endpoint IDs or net IDs were patched.
-const legacyCircuitJson: AnyCircuitElement[] = JSON.parse(
+const circuitJson: AnyCircuitElement[] = JSON.parse(
   readFileSync(
     new URL("./gnd-via-bottom-route.circuit.json", import.meta.url),
     "utf8",
@@ -28,7 +28,7 @@ const viaPortCircuitJson: AnyCircuitElement[] = JSON.parse(
 const options = { mode: "gerber", layer: "bottom", pixelsPerMm: 50 } as const;
 
 test("captured bottom route and both through-vias belong to GND without a source trace ID", async () => {
-  const db = cju(legacyCircuitJson);
+  const db = cju(circuitJson);
   const ground = db.source_net.list().find((net) => net.name === "GND")!;
   const bottomTraces = db.pcb_trace
     .list()
@@ -47,8 +47,7 @@ test("captured bottom route and both through-vias belong to GND without a source
       layers: ["top", "inner1", "inner2", "bottom"],
     });
   }
-  const connectivityMap =
-    getFullConnectivityMapFromCircuitJson(legacyCircuitJson);
+  const connectivityMap = getFullConnectivityMapFromCircuitJson(circuitJson);
   expect(
     connectivityMap.areAllIdsConnected([
       ground.source_net_id,
@@ -57,10 +56,10 @@ test("captured bottom route and both through-vias belong to GND without a source
     ]),
   ).toBe(true);
 
-  const shorts = await findBitmapShorts(legacyCircuitJson, options);
+  const shorts = await findBitmapShorts(circuitJson, options);
   await writeOrCompareSvgSnapshot(
     import.meta.path,
-    createShortDebugSvg(legacyCircuitJson, shorts, { layer: "bottom" }),
+    createShortDebugSvg(circuitJson, shorts, { layer: "bottom" }),
   );
 });
 
@@ -95,19 +94,19 @@ test("current core output routes through the bottom ports of both GND vias", asy
   );
 });
 
-for (const [coreVersion, circuitJson] of [
-  ["0.0.1971", legacyCircuitJson],
+for (const [coreVersion, fixtureCircuitJson] of [
+  ["0.0.1971", circuitJson],
   ["0.0.1994", viaPortCircuitJson],
 ] as const) {
   for (const mode of ["pcb", "gerber"] as const) {
     test(`core ${coreVersion}, ${mode}: same-GND bottom route does not report shorts at its via endpoints`, async () => {
-      expect(await findBitmapShorts(circuitJson, { ...options, mode })).toEqual(
-        [],
-      );
+      expect(
+        await findBitmapShorts(fixtureCircuitJson, { ...options, mode }),
+      ).toEqual([]);
     });
 
     test(`core ${coreVersion}, ${mode}: a route with no endpoint identity remains separate copper`, async () => {
-      const isolatedCircuitJson = structuredClone(circuitJson);
+      const isolatedCircuitJson = structuredClone(fixtureCircuitJson);
       const isolatedTrace = cju(isolatedCircuitJson)
         .pcb_trace.list()
         .find((trace) => !trace.source_trace_id)!;
@@ -139,12 +138,12 @@ for (const [coreVersion, circuitJson] of [
         y: 0,
         hole_diameter: 0.3,
         outer_diameter: 0.45,
-        layers: cju(circuitJson).pcb_via.list()[0].layers,
+        layers: cju(fixtureCircuitJson).pcb_via.list()[0].layers,
         from_layer: "top" as const,
         to_layer: "bottom" as const,
       };
       const shortedCircuitJson: AnyCircuitElement[] = [
-        ...circuitJson,
+        ...fixtureCircuitJson,
         {
           type: "source_net",
           source_net_id: "source_net_signal",
@@ -163,7 +162,7 @@ for (const [coreVersion, circuitJson] of [
         ),
       );
       expect(signalShorts.length).toBeGreaterThan(0);
-      const groundTrace = cju(circuitJson)
+      const groundTrace = cju(fixtureCircuitJson)
         .pcb_trace.list()
         .find((trace) => !trace.source_trace_id)!;
       for (const short of signalShorts) {
