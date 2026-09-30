@@ -63,7 +63,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "@tscircuit/circuit-json-util": "*",
     "@tscircuit/math-utils": "*",
-    "circuit-json-to-connectivity-map": ">=0.0.32",
+    "circuit-json-to-connectivity-map": "*",
     "circuit-json-to-gerber": "*",
     "circuit-json": "*",
     "circuit-to-canvas": "*",
