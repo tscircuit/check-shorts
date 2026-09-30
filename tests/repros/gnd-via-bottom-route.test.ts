@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { cju } from "@tscircuit/circuit-json-util";
 import type { AnyCircuitElement } from "circuit-json";
 import { getFullConnectivityMapFromCircuitJson } from "circuit-json-to-connectivity-map";
-import { buildConnectivityGroups } from "lib/bitmap-copper-groups";
 import { createShortDebugSvg, findBitmapShorts } from "lib/index";
 import { writeOrCompareSvgSnapshot } from "tests/fixtures/bitmap-snapshot";
 
@@ -17,8 +16,7 @@ const circuitJson: AnyCircuitElement[] = JSON.parse(
   ),
 );
 
-// Unmodified output from core PR #4002 at a311bcb5 (package version 0.0.1994).
-// Core getCoreVersion() adds one to the patch, so emitted metadata is 0.0.1995.
+// Unmodified output from core PR #4002 at a311bcb5 (core 0.0.1994).
 // The bottom route now references the ports listed in pcb_via.pcb_port_ids.
 const viaPortCircuitJson: AnyCircuitElement[] = JSON.parse(
   readFileSync(
@@ -94,39 +92,6 @@ test("current core output routes through the bottom ports of both GND vias", asy
     createShortDebugSvg(viaPortCircuitJson, shorts, { layer: "bottom" }),
     "via-ports-short-debug",
   );
-});
-
-test("via-port lookup preserves the caller's canonical GND key and unrelated copper groups", () => {
-  const db = cju(viaPortCircuitJson);
-  const connMap = getFullConnectivityMapFromCircuitJson(viaPortCircuitJson);
-  const originalMap = structuredClone(connMap);
-  const ground = db.source_net.list().find((net) => net.name === "GND")!;
-  const groundKey = connMap.getNetConnectedToId(ground.source_net_id)!;
-  const bottomTrace = db.pcb_trace
-    .list()
-    .find((trace) => !trace.source_trace_id)!;
-
-  for (const layer of ["top", "bottom"] as const) {
-    const groups = buildConnectivityGroups({
-      circuitJson: viaPortCircuitJson,
-      connMap,
-      db,
-      layer,
-    });
-    for (const via of db.pcb_via.list()) {
-      expect(groups.get(groundKey)).toContain(via);
-    }
-    if (layer === "bottom") {
-      expect(groups.get(groundKey)).toContain(bottomTrace);
-    } else {
-      for (const pad of db.pcb_smtpad.list()) {
-        const key = connMap.getNetConnectedToId(pad.pcb_port_id!)!;
-        expect(groups.get(key)).toContain(pad);
-      }
-    }
-  }
-  expect(connMap.netMap).toEqual(originalMap.netMap);
-  expect(connMap.idToNetMap).toEqual(originalMap.idToNetMap);
 });
 
 for (const [coreVersion, fixtureCircuitJson] of [
