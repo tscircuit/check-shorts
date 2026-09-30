@@ -1,6 +1,9 @@
 import { cju } from "@tscircuit/circuit-json-util";
 import type { AnyCircuitElement, LayerRef } from "circuit-json";
-import type { ConnectivityMap } from "circuit-json-to-connectivity-map";
+import {
+  ConnectivityMap,
+  findConnectedNetworks,
+} from "circuit-json-to-connectivity-map";
 
 export type CopperElement =
   | Extract<AnyCircuitElement, { type: "pcb_copper_pour" }>
@@ -99,6 +102,20 @@ export const buildConnectivityGroups = ({
   db: ReturnType<typeof cju>;
   layer: LayerRef;
 }): Map<string, CopperElement[]> => {
+  const viaPortConnections = db.pcb_via
+    .list()
+    .flatMap((via) =>
+      via.pcb_port_ids?.length ? [[via.pcb_via_id, ...via.pcb_port_ids]] : [],
+    );
+  if (viaPortConnections.length > 0) {
+    connMap = new ConnectivityMap(
+      findConnectedNetworks([
+        ...Object.values(connMap.netMap),
+        ...viaPortConnections,
+      ]),
+    );
+  }
+
   const groups = new Map<string, CopperElement[]>();
 
   for (const element of circuitJson) {
