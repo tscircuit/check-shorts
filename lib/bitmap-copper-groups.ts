@@ -87,7 +87,7 @@ const getCopperElementGlobalConnectivityKey = (
     return element.source_trace_id
       ? (connectedIdToKey.get(element.source_trace_id) ??
           element.source_trace_id)
-      : element.pcb_trace_id;
+      : (connectedIdToKey.get(element.pcb_trace_id) ?? element.pcb_trace_id);
   }
 
   if (element.type === "pcb_via") {
