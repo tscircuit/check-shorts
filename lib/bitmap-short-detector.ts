@@ -240,7 +240,7 @@ const createGroupMask = async ({
   return createPcbGroupMask({ elements, bounds, width, height, layer });
 };
 
-const getBitmapDimensions = (
+export const getBitmapDimensions = (
   bounds: Bounds,
   options: FindBitmapShortsOptions,
 ): { width: number; height: number } => {
@@ -336,7 +336,7 @@ const getBoundsFromPixelRect = ({
   };
 };
 
-const createBitmapMask = async ({
+export const createBitmapMask = async ({
   elements,
   pcbBoard,
   boardBounds,

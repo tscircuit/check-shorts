@@ -2,6 +2,7 @@ import { convertCircuitJsonToPcbSvg } from "circuit-to-svg";
 import type { AnyCircuitElement, LayerRef } from "circuit-json";
 import type { BitmapShort } from "./bitmap-short-detector";
 import { getBoardBounds } from "./bitmap-geometry";
+import type { BitmapOpen } from "./bitmap-open-detector";
 
 interface Rect {
   x: number;
@@ -81,13 +82,42 @@ const shortMarkerStroke = "#9b5cff";
 export const createShortDebugSvg = (
   circuitJson: AnyCircuitElement[],
   shorts: BitmapShort[],
-  options: { layer?: LayerRef } = {},
+  options: { layer?: LayerRef; opens?: BitmapOpen[] } = {},
 ): string => {
   const shortLayers = new Set(shorts.map((short) => short.layer));
   const layer =
     options.layer ??
     (shortLayers.size === 1 ? ([...shortLayers][0] as LayerRef) : undefined);
-  const baseSvg = convertCircuitJsonToPcbSvg(circuitJson, { layer });
+  const openErrors: AnyCircuitElement[] = (options.opens ?? []).map(
+    (open, index) => ({
+      type: "pcb_port_not_connected_error",
+      error_type: "pcb_port_not_connected_error",
+      pcb_port_not_connected_error_id: `bitmap_open_${index}`,
+      pcb_port_ids: [
+        ...new Set(open.islands.flatMap((island) => island.pcbPortIds)),
+      ],
+      pcb_component_ids: circuitJson
+        .filter(
+          (e) =>
+            e.type === "pcb_port" &&
+            open.islands.some((island) =>
+              island.pcbPortIds.includes(e.pcb_port_id),
+            ),
+        )
+        .flatMap((e) =>
+          e.type === "pcb_port" && e.pcb_component_id
+            ? [e.pcb_component_id]
+            : [],
+        ),
+      message: `OPEN ${open.netNames.join(", ") || open.connectivityKey}: ${open.islands.map((island) => island.labels.join(", ")).join(" | ")}`,
+    }),
+  );
+  const baseSvg = convertCircuitJsonToPcbSvg([...circuitJson, ...openErrors], {
+    layer,
+    ...(openErrors.length
+      ? { shouldDrawErrors: true, showErrorsInTextOverlay: true }
+      : {}),
+  });
   const seenShortCenters = new Set<string>();
   const overlays = shorts
     .filter((short) => {

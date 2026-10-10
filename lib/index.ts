@@ -17,3 +17,8 @@ export {
 } from "./bitmap-short-detector";
 export { createShortDebugSvg } from "./short-debug-svg";
 export { appendBitmapLegend, encodeRgbaPng } from "./png";
+export {
+  findBitmapOpens,
+  type BitmapOpen,
+  type FindBitmapOpensOptions,
+} from "./bitmap-open-detector";
