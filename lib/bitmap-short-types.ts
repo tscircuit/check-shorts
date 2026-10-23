@@ -17,6 +17,34 @@ export interface BitmapShortDebugLegendEntry {
   labels: string[];
 }
 
+export type BitmapShortProgressEvent =
+  | {
+      phase: "preparing";
+      mode: "pcb" | "gerber";
+      layer: LayerRef;
+    }
+  | {
+      phase: "rasterizing";
+      mode: "pcb" | "gerber";
+      layer: LayerRef;
+      width: number;
+      height: number;
+      completedGroups: number;
+      totalGroups: number;
+      currentConnectivityKey?: string;
+    }
+  | {
+      phase: "detecting";
+      mode: "pcb" | "gerber";
+      layer: LayerRef;
+    }
+  | {
+      phase: "complete";
+      mode: "pcb" | "gerber";
+      layer: LayerRef;
+      shortsFound: number;
+    };
+
 export interface FindBitmapShortsOptions {
   width?: number;
   height?: number;
@@ -24,6 +52,7 @@ export interface FindBitmapShortsOptions {
   pixelsPerMm?: number;
   layer?: LayerRef;
   mode?: "pcb" | "gerber";
+  onProgress?: (event: BitmapShortProgressEvent) => void;
 }
 
 export interface BitmapShortDebugRender {

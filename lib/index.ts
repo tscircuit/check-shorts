@@ -12,6 +12,7 @@ export {
   renderBitmapShortDebug,
   type BitmapShortDebugLegendEntry,
   type BitmapShortDebugRender,
+  type BitmapShortProgressEvent,
   type BitmapShort,
   type FindBitmapShortsOptions,
 } from "./bitmap-short-detector";
