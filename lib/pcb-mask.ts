@@ -29,7 +29,7 @@ const getTraceLayerSegments = (
     currentRoute = [];
   };
 
-  for (const point of trace.route) {
+  for (const point of trace.route ?? []) {
     if ("layer" in point && point.layer === layer) {
       currentRoute.push(point);
       continue;

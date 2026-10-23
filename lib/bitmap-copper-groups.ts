@@ -27,7 +27,9 @@ const isCopperElementOnLayer = (
   }
 
   if (element.type === "pcb_trace") {
-    return element.route.some(
+    // Unrouted traces omit `route` (or leave it empty). They have no copper
+    // geometry, so they are not on any layer for short detection.
+    return (element.route ?? []).some(
       (point) => "layer" in point && point.layer === layer,
     );
   }

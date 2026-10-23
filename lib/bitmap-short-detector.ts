@@ -134,7 +134,7 @@ const getTraceBounds = (
 ): Bounds | null => {
   let bounds: Bounds | null = null;
 
-  for (const point of element.route) {
+  for (const point of element.route ?? []) {
     if ("start" in point && "end" in point) {
       const margin = (point.width ?? 0) / 2;
       bounds = includePointInBounds(bounds, point.start, margin);
