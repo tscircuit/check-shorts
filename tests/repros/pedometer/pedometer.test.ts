@@ -91,17 +91,20 @@ for (const [mode, pixelsPerMm] of [
   ["gerber", 50],
   ["gerber", 100],
 ] as const) {
-  test(`${mode} ${pixelsPerMm} px/mm: probe every PMID pad across all four layers, then repair the missing via`, async () => {
+  test(`${mode} ${pixelsPerMm} px/mm: probe every PMID pad across all four layers`, async () => {
     const circuitJson = getPedometer();
     const original = JSON.stringify(circuitJson);
     expect(
       await probePhysicalNet(circuitJson, PMID_NET_ID, { mode, pixelsPerMm }),
     ).toEqual(islands);
+    expect(JSON.stringify(circuitJson)).toBe(original);
+  }, 90_000);
+
+  test(`${mode} ${pixelsPerMm} px/mm: the repair via connects all PMID pads`, async () => {
+    const circuitJson = [...getPedometer(), makeRepairVia()];
+    const original = JSON.stringify(circuitJson);
     expect(
-      await probePhysicalNet([...circuitJson, makeRepairVia()], PMID_NET_ID, {
-        mode,
-        pixelsPerMm,
-      }),
+      await probePhysicalNet(circuitJson, PMID_NET_ID, { mode, pixelsPerMm }),
     ).toEqual(connected);
     expect(JSON.stringify(circuitJson)).toBe(original);
   }, 90_000);

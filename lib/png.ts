@@ -142,7 +142,7 @@ export const getLegendLabel = (
   return `${fittedLabel}${ellipsis}`;
 };
 
-const createAlphabetTextSvg = ({
+export const createAlphabetTextSvg = ({
   text,
   x,
   top,
