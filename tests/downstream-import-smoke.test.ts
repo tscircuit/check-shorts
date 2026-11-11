@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import {
   mkdirSync,
   mkdtempSync,
@@ -8,7 +9,6 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
 
 const repoRoot = resolve(import.meta.dir, "..");
 
@@ -81,17 +81,28 @@ test("downstream TypeScript consumers can statically import package exports", ()
   writeFileSync(
     join(consumerRoot, "index.ts"),
     [
-      'import { createShortDebugSvg, renderBitmapShortDebug } from "@tscircuit/check-shorts";',
-      'import type { BitmapShort, BitmapShortDebugRender, FindBitmapShortsOptions } from "@tscircuit/check-shorts";',
+      'import { createCroppedShortDebugSvg, createShortDebugSvg, formatShortReport, formatShortSummary, renderBitmapShortDebug } from "@tscircuit/check-shorts";',
+      'import type { BitmapShort, BitmapShortDebugRender, FindBitmapShortsOptions, FormatShortReportOptions, ShortDebugSvgOptions, ShortInvolvedPrimitive } from "@tscircuit/check-shorts";',
       "",
       "const shorts: BitmapShort[] = [];",
+      "const primitives: ShortInvolvedPrimitive[] = [];",
       'const options: FindBitmapShortsOptions = { mode: "pcb" };',
+      "const svgOptions: ShortDebugSvgOptions = { crop: true, paddingMm: 1.5 };",
+      'const reportOptions: FormatShortReportOptions = { fileName: "board.json" };',
       "const render: BitmapShortDebugRender | null = null;",
       "const svg = createShortDebugSvg([], shorts);",
+      "const croppedSvg = createCroppedShortDebugSvg([], shorts, { paddingMm: 1.2 });",
+      "const report = formatShortReport(shorts, reportOptions);",
+      "const summaryFn: typeof formatShortSummary = formatShortSummary;",
       "const renderDebug: typeof renderBitmapShortDebug = renderBitmapShortDebug;",
+      "void primitives;",
       "void options;",
+      "void svgOptions;",
       "void render;",
       "void svg;",
+      "void croppedSvg;",
+      "void report;",
+      "void summaryFn;",
       "void renderDebug;",
     ].join("\n"),
   );

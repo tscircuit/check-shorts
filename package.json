@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@tscircuit/alphabet": "^0.0.25",
-    "@biomejs/biome": "^2.2.4",
+    "@biomejs/biome": "2.2.4",
     "@resvg/resvg-js": "^2.6.2",
     "@tscircuit/circuit-json-util": "^0.0.99",
     "@tscircuit/image-utils": "^0.0.8",
