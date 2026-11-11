@@ -45,7 +45,7 @@ test("a via on the diagonal pad should short in both modes", async () => {
     board,
     "Via touches the diagonal pad",
   );
-  expect(counts).toEqual({ pcb: 1, gerber: 0 });
+  expect(counts).toEqual({ pcb: 1, gerber: 1 });
 });
 
 test("moving the via beside the same pad should clear the short", async () => {
@@ -56,5 +56,5 @@ test("moving the via beside the same pad should clear the short", async () => {
     board,
     "Via sits beside the diagonal pad",
   );
-  expect(counts).toEqual({ pcb: 0, gerber: 1 });
+  expect(counts).toEqual({ pcb: 0, gerber: 0 });
 });

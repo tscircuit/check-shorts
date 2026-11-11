@@ -18,28 +18,44 @@ const normalizeRotation = (rotation: number): number =>
 const isOddQuarterTurn = (rotation: number): boolean =>
   Math.abs(rotation - 90) < 1e-6 || Math.abs(rotation - 270) < 1e-6;
 
-/**
- * gerber-to-svg does not apply Gerber LR transforms to rounded-rectangle
- * apertures. Bake orthogonal quarter turns into the aperture dimensions before
- * handing the Gerber to that renderer so the bitmap matches the Circuit JSON.
- */
-const normalizeOrthogonalSmtpadRotations = (
+/** gerber-to-svg ignores aperture rotations on rounded-rectangle flashes. */
+const normalizeSmtpadRotations = (
   elements: AnyCircuitElement[],
 ): AnyCircuitElement[] =>
-  elements.map((element) => {
-    if (element.type !== "pcb_smtpad" || element.shape !== "rotated_rect") {
-      return element;
+  elements.flatMap((pad): AnyCircuitElement[] => {
+    if (pad.type !== "pcb_smtpad" || pad.shape !== "rotated_rect") return [pad];
+
+    const rotation = normalizeRotation(pad.ccw_rotation);
+    if (isOddQuarterTurn(rotation)) {
+      return [
+        { ...pad, width: pad.height, height: pad.width, ccw_rotation: 0 },
+      ];
     }
+    const radius = Math.min(
+      pad.corner_radius ?? 0,
+      pad.width / 2,
+      pad.height / 2,
+    );
+    if (rotation === 0 || rotation === 180 || radius <= 0) return [pad];
 
-    const rotation = normalizeRotation(element.ccw_rotation);
-    if (!isOddQuarterTurn(rotation)) return element;
-
-    return {
-      ...element,
-      width: element.height,
-      height: element.width,
-      ccw_rotation: 0,
-    };
+    // A central rectangle and round-ended strokes have the exact same outline.
+    // The Gerber exporter rotates their coordinates directly.
+    const offset = pad.height / 2 - radius;
+    const angle = (rotation * Math.PI) / 180;
+    const caps = (offset === 0 ? [0] : [-offset, offset]).map((y, index) => ({
+      ...pad,
+      pcb_smtpad_id: `${pad.pcb_smtpad_id}_cap_${index}`,
+      shape: "rotated_pill" as const,
+      x: pad.x - y * Math.sin(angle),
+      y: pad.y + y * Math.cos(angle),
+      height: 2 * radius,
+      radius,
+    }));
+    if (offset === 0) return caps;
+    return [
+      { ...pad, height: 2 * offset, corner_radius: 0, rect_border_radius: 0 },
+      ...caps,
+    ];
   });
 
 export const getGerberLayerString = (
@@ -47,7 +63,7 @@ export const getGerberLayerString = (
   layer: LayerRef,
 ): string | undefined => {
   const gerberLayers = stringifyGerberCommandLayers(
-    convertSoupToGerberCommands(normalizeOrthogonalSmtpadRotations(elements)),
+    convertSoupToGerberCommands(normalizeSmtpadRotations(elements)),
   );
 
   return gerberLayers[getGerberLayerName(layer)];
