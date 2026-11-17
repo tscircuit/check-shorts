@@ -1,19 +1,27 @@
 export {
+  type BitmapShort,
+  type BitmapShortDebugLegendEntry,
+  type BitmapShortDebugRender,
+  type FindBitmapShortsOptions,
+  type FormatShortReportOptions,
+  findBitmapShorts,
+  renderBitmapShortDebug,
+  type ShortCopperPrimitiveType,
+  type ShortDebugSvgOptions,
+  type ShortInvolvedPrimitive,
+} from "./bitmap-short-detector";
+export { appendBitmapLegend, encodeRgbaPng } from "./png";
+export {
   appendCopperBridgeTrace,
-  convertCircuitJsonToGerberLayers,
-  renderTscircuitRepro,
   type CopperBridgeOptions,
+  convertCircuitJsonToGerberLayers,
   type GerberLayerMap,
   type RenderedRepro,
   type RenderReproOptions,
+  renderTscircuitRepro,
 } from "./repro-runner";
 export {
-  findBitmapShorts,
-  renderBitmapShortDebug,
-  type BitmapShortDebugLegendEntry,
-  type BitmapShortDebugRender,
-  type BitmapShort,
-  type FindBitmapShortsOptions,
-} from "./bitmap-short-detector";
-export { createShortDebugSvg } from "./short-debug-svg";
-export { appendBitmapLegend, encodeRgbaPng } from "./png";
+  createCroppedShortDebugSvg,
+  createShortDebugSvg,
+} from "./short-debug-svg";
+export { formatShortReport, formatShortSummary } from "./short-report";

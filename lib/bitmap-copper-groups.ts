@@ -1,4 +1,4 @@
-import { cju } from "@tscircuit/circuit-json-util";
+import type { cju } from "@tscircuit/circuit-json-util";
 import type { AnyCircuitElement, LayerRef } from "circuit-json";
 import type { ConnectivityMap } from "circuit-json-to-connectivity-map";
 
@@ -9,7 +9,7 @@ export type CopperElement =
   | Extract<AnyCircuitElement, { type: "pcb_via" }>
   | Extract<AnyCircuitElement, { type: "pcb_plated_hole" }>;
 
-const isCopperElement = (
+export const isCopperElement = (
   element: AnyCircuitElement,
 ): element is CopperElement =>
   element.type === "pcb_copper_pour" ||
@@ -18,7 +18,7 @@ const isCopperElement = (
   element.type === "pcb_via" ||
   element.type === "pcb_plated_hole";
 
-const isCopperElementOnLayer = (
+export const isCopperElementOnLayer = (
   element: CopperElement,
   layer: LayerRef,
 ): boolean => {
@@ -35,7 +35,7 @@ const isCopperElementOnLayer = (
   return element.layer === layer;
 };
 
-const getConnectedIdToGlobalKeyMap = (
+export const getConnectedIdToGlobalKeyMap = (
   connMap: ConnectivityMap,
 ): Map<string, string> => {
   const connectedIdToKey = new Map<string, string>();
@@ -65,7 +65,15 @@ const getSourceNetGlobalConnectivityKey = (
   );
 };
 
-const getCopperElementGlobalConnectivityKey = (
+export const getCopperElementId = (element: CopperElement): string => {
+  if (element.type === "pcb_copper_pour") return element.pcb_copper_pour_id;
+  if (element.type === "pcb_smtpad") return element.pcb_smtpad_id;
+  if (element.type === "pcb_trace") return element.pcb_trace_id;
+  if (element.type === "pcb_via") return element.pcb_via_id;
+  return element.pcb_plated_hole_id;
+};
+
+export const getCopperElementGlobalConnectivityKey = (
   element: CopperElement,
   connMap: ConnectivityMap,
   connectedIdToKey: Map<string, string>,
@@ -137,7 +145,7 @@ export const buildConnectivityGroups = ({
   return groups;
 };
 
-const getCopperElementLabel = (
+export const getCopperElementLabel = (
   element: CopperElement,
   db: ReturnType<typeof cju>,
 ): string => {

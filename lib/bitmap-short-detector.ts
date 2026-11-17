@@ -1,16 +1,20 @@
 import { cju, getBoundsOfPcbElements } from "@tscircuit/circuit-json-util";
-import type { AnyCircuitElement, LayerRef } from "circuit-json";
 import {
+  type Bounds,
   boundsIntersection,
   clamp,
   getBoundsFromPoints,
-  type Bounds,
   type Point,
 } from "@tscircuit/math-utils";
-import { getFullConnectivityMapFromCircuitJson } from "circuit-json-to-connectivity-map";
+import type { AnyCircuitElement, LayerRef } from "circuit-json";
+import {
+  type ConnectivityMap,
+  getFullConnectivityMapFromCircuitJson,
+} from "circuit-json-to-connectivity-map";
 import {
   buildConnectivityGroups,
   type CopperElement,
+  getConnectedIdToGlobalKeyMap,
   getUniqueOwnerLabels,
 } from "./bitmap-copper-groups";
 import {
@@ -21,20 +25,29 @@ import {
   setRgbaPixel,
 } from "./bitmap-debug-overlay";
 import { getBoardBounds, getRealPointFromPixel } from "./bitmap-geometry";
-import { assertGerberLayerCanBeGenerated } from "./gerber-layer";
-import { createGerberGroupMask } from "./gerber-mask";
-import { createPcbGroupMask } from "./pcb-mask";
 import type {
   BitmapShort,
   BitmapShortDebugRender,
   FindBitmapShortsOptions,
 } from "./bitmap-short-types";
+import { assertGerberLayerCanBeGenerated } from "./gerber-layer";
+import { createGerberGroupMask } from "./gerber-mask";
+import { createPcbGroupMask } from "./pcb-mask";
+import {
+  buildMinimalWitnessPath,
+  findInvolvedPrimitivesForShortCluster,
+  resolveLogicalNetName,
+} from "./short-attribution";
 
 export type {
   BitmapShort,
   BitmapShortDebugLegendEntry,
   BitmapShortDebugRender,
   FindBitmapShortsOptions,
+  FormatShortReportOptions,
+  ShortCopperPrimitiveType,
+  ShortDebugSvgOptions,
+  ShortInvolvedPrimitive,
 } from "./bitmap-short-types";
 
 interface ShortPixelGroup {
@@ -68,13 +81,15 @@ const includePointInBounds = (
   bounds: Bounds | null,
   point: { x: number; y: number },
   margin = 0,
-): Bounds =>
-  mergeBounds(bounds, {
+): Bounds => {
+  const pointBounds: Bounds = {
     minX: point.x - margin,
     maxX: point.x + margin,
     minY: point.y - margin,
     maxY: point.y + margin,
-  })!;
+  };
+  return mergeBounds(bounds, pointBounds) ?? pointBounds;
+};
 
 const mergeBounds = (
   first: Bounds | null,
@@ -115,6 +130,16 @@ const clampBounds = (bounds: Bounds, boardBounds: Bounds): Bounds =>
 const getCopperPourBounds = (
   element: Extract<CopperElement, { type: "pcb_copper_pour" }>,
 ): Bounds | null => {
+  if (element.shape === "rect") {
+    const halfDiag = Math.hypot(element.width, element.height) / 2;
+    return {
+      minX: element.center.x - halfDiag,
+      maxX: element.center.x + halfDiag,
+      minY: element.center.y - halfDiag,
+      maxY: element.center.y + halfDiag,
+    };
+  }
+
   const points: Point[] = [];
 
   if (element.shape === "brep") {
@@ -126,7 +151,8 @@ const getCopperPourBounds = (
     points.push(...element.points);
   }
 
-  return getBoundsFromPoints(points);
+  const bounds = getBoundsFromPoints(points);
+  return bounds && isFiniteBounds(bounds) ? bounds : null;
 };
 
 const getTraceBounds = (
@@ -191,7 +217,7 @@ const getElementBounds = (element: CopperElement): Bounds | null => {
   }
 
   const bounds = getBoundsOfPcbElements([element]);
-  return isFiniteBounds(bounds) ? bounds : null;
+  return bounds && isFiniteBounds(bounds) ? bounds : null;
 };
 
 const getGroupBounds = ({
@@ -406,7 +432,7 @@ const paintBitmapMask = ({
 
     // Higher-priority copper is drawn on top; ties retain the first group's
     // deterministic color.
-    if (paintPriorities[pixelIndex]! >= priority) continue;
+    if ((paintPriorities[pixelIndex] ?? 0) >= priority) continue;
     paintPriorities[pixelIndex] = priority;
     setRgbaPixel(rgba, pixelIndex, color);
   }
@@ -417,16 +443,49 @@ const createShortsFromPixelGroups = ({
   bounds,
   width,
   height,
+  circuitJson,
+  connMap,
+  connectedIdToKey,
+  connectivityGroups,
+  db,
 }: {
   shortPixelGroups: ShortPixelGroup[];
   bounds: Bounds;
   width: number;
   height: number;
+  circuitJson: AnyCircuitElement[];
+  connMap: ConnectivityMap;
+  connectedIdToKey: Map<string, string>;
+  connectivityGroups: Map<string, CopperElement[]>;
+  db: ReturnType<typeof cju>;
 }): BitmapShort[] => {
   const shorts: BitmapShort[] = [];
+  const { scale } = getScaleInfo({ bounds, width, height });
+  const contactToleranceMm = Math.max(2.5 / scale, 0.06);
+  const netNameCache = new Map<string, string>();
+
+  const getNetName = (connectivityKey: string): string => {
+    const cached = netNameCache.get(connectivityKey);
+    if (cached !== undefined) return cached;
+    const resolved = resolveLogicalNetName({
+      connectivityKey,
+      groupElements: connectivityGroups.get(connectivityKey) ?? [],
+      circuitJson,
+      connMap,
+      db,
+    });
+    netNameCache.set(connectivityKey, resolved);
+    return resolved;
+  };
 
   for (const shortPixelGroup of shortPixelGroups) {
     const unvisitedPixels = new Set(shortPixelGroup.pixels);
+    const firstNetName = getNetName(shortPixelGroup.firstConnectivityKey);
+    const secondNetName = getNetName(shortPixelGroup.secondConnectivityKey);
+    const firstElements =
+      connectivityGroups.get(shortPixelGroup.firstConnectivityKey) ?? [];
+    const secondElements =
+      connectivityGroups.get(shortPixelGroup.secondConnectivityKey) ?? [];
 
     while (unvisitedPixels.size > 0) {
       const firstPixel = unvisitedPixels.values().next().value as number;
@@ -435,14 +494,23 @@ const createShortsFromPixelGroups = ({
       let pixelCount = 0;
       let pixelXSum = 0;
       let pixelYSum = 0;
+      let minPixelX = width;
+      let maxPixelX = 0;
+      let minPixelY = height;
+      let maxPixelY = 0;
 
       for (let queueIndex = 0; queueIndex < queue.length; queueIndex++) {
-        const pixelIndex = queue[queueIndex]!;
+        const pixelIndex = queue[queueIndex];
+        if (pixelIndex === undefined) continue;
         const x = pixelIndex % width;
         const y = Math.floor(pixelIndex / width);
         pixelCount++;
         pixelXSum += x;
         pixelYSum += y;
+        if (x < minPixelX) minPixelX = x;
+        if (x > maxPixelX) maxPixelX = x;
+        if (y < minPixelY) minPixelY = y;
+        if (y > maxPixelY) maxPixelY = y;
 
         for (let dy = -1; dy <= 1; dy++) {
           for (let dx = -1; dx <= 1; dx++) {
@@ -458,19 +526,98 @@ const createShortsFromPixelGroups = ({
         }
       }
 
+      const center = getRealPointFromPixel({
+        x: pixelXSum / pixelCount,
+        y: pixelYSum / pixelCount,
+        bounds,
+        width,
+        height,
+      });
+      const clusterBounds = getBoundsFromPixelRect({
+        rect: {
+          x: minPixelX,
+          y: minPixelY,
+          width: Math.max(1, maxPixelX - minPixelX + 1),
+          height: Math.max(1, maxPixelY - minPixelY + 1),
+        },
+        boardBounds: bounds,
+        width,
+        height,
+      });
+
+      const samplePoints: Point[] = [center];
+      const stride = Math.max(1, Math.floor(queue.length / 64));
+      for (let idx = 0; idx < queue.length; idx += stride) {
+        const pxIndex = queue[idx];
+        if (pxIndex === undefined) continue;
+        samplePoints.push(
+          getRealPointFromPixel({
+            x: pxIndex % width,
+            y: Math.floor(pxIndex / width),
+            bounds,
+            width,
+            height,
+          }),
+        );
+      }
+      const lastPixelIndex = queue[queue.length - 1];
+      if (lastPixelIndex !== undefined) {
+        samplePoints.push(
+          getRealPointFromPixel({
+            x: lastPixelIndex % width,
+            y: Math.floor(lastPixelIndex / width),
+            bounds,
+            width,
+            height,
+          }),
+        );
+      }
+
+      const firstInvolvedPrimitives = findInvolvedPrimitivesForShortCluster({
+        elements: firstElements,
+        samplePoints,
+        layer: shortPixelGroup.layer,
+        contactToleranceMm,
+        db,
+      });
+      const secondInvolvedPrimitives = findInvolvedPrimitivesForShortCluster({
+        elements: secondElements,
+        samplePoints,
+        layer: shortPixelGroup.layer,
+        contactToleranceMm,
+        db,
+      });
+      const firstWitnessPath = buildMinimalWitnessPath({
+        involvedPrimitives: firstInvolvedPrimitives,
+        connectivityKey: shortPixelGroup.firstConnectivityKey,
+        circuitJson,
+        connMap,
+        connectedIdToKey,
+        db,
+      });
+      const secondWitnessPath = buildMinimalWitnessPath({
+        involvedPrimitives: secondInvolvedPrimitives,
+        connectivityKey: shortPixelGroup.secondConnectivityKey,
+        circuitJson,
+        connMap,
+        connectedIdToKey,
+        db,
+      });
+
       shorts.push({
         mode: shortPixelGroup.mode,
         layer: shortPixelGroup.layer,
         firstConnectivityKey: shortPixelGroup.firstConnectivityKey,
         secondConnectivityKey: shortPixelGroup.secondConnectivityKey,
+        firstNetName,
+        secondNetName,
         pixelCount,
-        center: getRealPointFromPixel({
-          x: pixelXSum / pixelCount,
-          y: pixelYSum / pixelCount,
-          bounds,
-          width,
-          height,
-        }),
+        center,
+        bounds: clusterBounds,
+        firstInvolvedPrimitives,
+        secondInvolvedPrimitives,
+        firstWitnessPath,
+        secondWitnessPath,
         firstOwnerLabels: shortPixelGroup.firstOwnerLabels,
         secondOwnerLabels: shortPixelGroup.secondOwnerLabels,
       });
@@ -664,6 +811,11 @@ export const renderBitmapShortDebug = async (
     bounds,
     width,
     height,
+    circuitJson,
+    connMap,
+    connectedIdToKey: getConnectedIdToGlobalKeyMap(connMap),
+    connectivityGroups,
+    db,
   });
 
   overlayPcbPortMarkers({ circuitJson, bounds, width, height, rgba });
