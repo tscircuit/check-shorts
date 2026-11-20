@@ -12,9 +12,9 @@ bridge, but both PCB and Gerber modes currently return zero shorts.
 bun test tests/repros/nema8-tvs-bridge
 ```
 
-This PR is a reproduction only. It intentionally asserts the current false
-negative and does not change production code. The stacked fix changes the two
-short-check assertions to require the TVS short.
+The fixture was introduced in a reproduction-only PR that asserted the false
+negative. The follow-up fix keeps the literal fixture unchanged and requires
+both PCB and Gerber modes to report the TVS short.
 
 ## Literal fixture and provenance
 
@@ -40,6 +40,6 @@ does not reproduce the same connectivity-map behavior.
 | Copper layer | bottom |
 
 The full connectivity map trusts `end_pcb_port_id` and consequently merges the
-VM and GND identifiers before the bitmap checker compares copper groups. The
-same physical bridge is then painted as one group instead of two different
-intended nets, so no short is reported.
+VM and GND identifiers. The checker now uses each copper element's source
+connectivity key as its intended net when that metadata is available, while
+retaining the full-connectivity fallback for elements without source metadata.

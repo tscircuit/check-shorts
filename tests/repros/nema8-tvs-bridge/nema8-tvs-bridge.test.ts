@@ -64,16 +64,25 @@ test("VM route metadata ends on the TVS GND port and merges the intended nets", 
   ).toBe(true);
 });
 
-// Characterize the current shorts-only API behavior. The stacked fix turns
-// these into positive TVS short assertions without changing the fixture.
 test.each(["pcb", "gerber"] as const)(
-  "%s: currently misses the NEMA8 D_VM_TVS VM-to-GND copper bridge",
+  "%s: detects the NEMA8 D_VM_TVS VM-to-GND copper bridge",
   async (mode) => {
-    expect(
-      await findBitmapShorts(getNema8Controller(), {
-        mode,
-        layer: "bottom",
-      }),
-    ).toEqual([]);
+    const shorts = await findBitmapShorts(getNema8Controller(), {
+      mode,
+      layer: "bottom",
+    });
+    const tvsShort = shorts.find((short) => {
+      const ownerLabels = [
+        ...short.firstOwnerLabels,
+        ...short.secondOwnerLabels,
+      ];
+      return (
+        ownerLabels.includes("D_VM_TVS.pin1") &&
+        ownerLabels.includes("D_VM_TVS.pin2") &&
+        Math.hypot(short.center.x - 0.95, short.center.y - 3.45) < 0.25
+      );
+    });
+
+    expect(tvsShort).toBeDefined();
   },
 );
