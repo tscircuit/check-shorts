@@ -30,6 +30,11 @@ jobs:
         with:
           bun-version: latest
 
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+      # Configured after installing: this points the @tscircuit scope at GitHub
+      # Packages for publishing, but the @tscircuit dependencies are on npm.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -37,8 +42,6 @@ jobs:
           scope: "@tscircuit"
 
       - run: npm install -g pver
-      - run: bun install --frozen-lockfile
-      - run: bun run build
 
       - name: Publish package
         run: pver release --no-push-main
