@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import usbContact from "./fixtures/usb-c-pad-pour-contact.json";
 import type { AnyCircuitElement } from "circuit-json";
-import { findBitmapShorts } from "../lib/bitmap-short-detector";
+import { findBitmapShorts } from "../lib/node-bitmap-short-detector";
 
 // A polygon pad sitting exactly in a pour cutout reproduces the USB-C
 // VBUS contact: their boundaries touch, but their filled areas do not overlap.

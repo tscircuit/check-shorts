@@ -10,10 +10,12 @@ export {
 export {
   findBitmapShorts,
   renderBitmapShortDebug,
-  type BitmapShortDebugLegendEntry,
-  type BitmapShortDebugRender,
-  type BitmapShort,
-  type FindBitmapShortsOptions,
-} from "./bitmap-short-detector";
+} from "./node-bitmap-short-detector";
+export type {
+  BitmapShortDebugLegendEntry,
+  BitmapShortDebugRender,
+  BitmapShort,
+  FindBitmapShortsOptions,
+} from "./bitmap-short-types";
 export { createShortDebugSvg } from "./short-debug-svg";
 export { appendBitmapLegend, encodeRgbaPng } from "./png";

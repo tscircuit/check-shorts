@@ -21,8 +21,8 @@ import {
   setRgbaPixel,
 } from "./bitmap-debug-overlay";
 import { getBoardBounds, getRealPointFromPixel } from "./bitmap-geometry";
-import { assertGerberLayerCanBeGenerated } from "./gerber-layer";
-import { createGerberGroupMask } from "./gerber-mask";
+import type { assertGerberLayerCanBeGenerated } from "./gerber-layer";
+import type { createGerberGroupMask } from "./gerber-mask";
 import { createPcbGroupMask } from "./pcb-mask";
 import type {
   BitmapShort,
@@ -60,6 +60,16 @@ interface BitmapMask {
 }
 
 type PcbBoardElement = Extract<AnyCircuitElement, { type: "pcb_board" }>;
+
+/**
+ * Gerber rasterization needs Node-only dependencies (resvg, gerber-to-svg), so
+ * it is injected rather than imported here. This keeps the detector core
+ * loadable in a browser, where only "pcb" mode is available.
+ */
+export interface GerberBitmapSupport {
+  assertGerberLayerCanBeGenerated: typeof assertGerberLayerCanBeGenerated;
+  createGerberGroupMask: typeof createGerberGroupMask;
+}
 
 const COPPER_POUR_PAINT_PRIORITY = 1;
 const OTHER_COPPER_PAINT_PRIORITY = 2;
@@ -218,6 +228,7 @@ const createGroupMask = async ({
   height,
   layer,
   mode,
+  gerberSupport,
 }: {
   elements: CopperElement[];
   pcbBoard?: PcbBoardElement;
@@ -226,9 +237,10 @@ const createGroupMask = async ({
   height: number;
   layer: LayerRef;
   mode: "pcb" | "gerber";
+  gerberSupport?: GerberBitmapSupport;
 }): Promise<Uint8Array> => {
   if (mode === "gerber") {
-    return createGerberGroupMask({
+    return gerberSupport!.createGerberGroupMask({
       elements: pcbBoard ? [pcbBoard, ...elements] : elements,
       bounds,
       width,
@@ -344,6 +356,7 @@ const createBitmapMask = async ({
   height,
   layer,
   mode,
+  gerberSupport,
 }: {
   elements: CopperElement[];
   pcbBoard?: PcbBoardElement;
@@ -352,6 +365,7 @@ const createBitmapMask = async ({
   height: number;
   layer: LayerRef;
   mode: "pcb" | "gerber";
+  gerberSupport?: GerberBitmapSupport;
 }): Promise<BitmapMask | null> => {
   const groupBounds = getGroupBounds({ elements, boardBounds });
   const rect = getPixelRectFromBounds({
@@ -376,6 +390,7 @@ const createBitmapMask = async ({
     height: rect.height,
     layer,
     mode,
+    gerberSupport,
   });
 
   return { rect, mask };
@@ -480,9 +495,10 @@ const createShortsFromPixelGroups = ({
   return shorts.sort((a, b) => b.pixelCount - a.pixelCount);
 };
 
-export const renderBitmapShortDebug = async (
+const renderBitmapShortDebugWithGerberSupport = async (
   circuitJson: AnyCircuitElement[],
-  options: FindBitmapShortsOptions = {},
+  options: FindBitmapShortsOptions,
+  gerberSupport?: GerberBitmapSupport,
 ): Promise<BitmapShortDebugRender> => {
   const layer = options.layer ?? "top";
   const mode = options.mode ?? "pcb";
@@ -501,7 +517,12 @@ export const renderBitmapShortDebug = async (
   });
 
   if (mode === "gerber") {
-    assertGerberLayerCanBeGenerated(circuitJson, layer);
+    if (!gerberSupport) {
+      throw new Error(
+        'mode "gerber" is not available in the browser build of @tscircuit/check-shorts, use mode "pcb"',
+      );
+    }
+    gerberSupport.assertGerberLayerCanBeGenerated(circuitJson, layer);
   }
 
   const pixelOwners = new Array<string | undefined>(width * height);
@@ -528,6 +549,7 @@ export const renderBitmapShortDebug = async (
       height,
       layer,
       mode,
+      gerberSupport,
     });
     if (!bitmapMask) continue;
 
@@ -626,6 +648,7 @@ export const renderBitmapShortDebug = async (
       height,
       layer,
       mode,
+      gerberSupport,
     });
     if (copperPourMask) {
       paintBitmapMask({
@@ -646,6 +669,7 @@ export const renderBitmapShortDebug = async (
       height,
       layer,
       mode,
+      gerberSupport,
     });
     if (nonPourMask) {
       paintBitmapMask({
@@ -672,8 +696,24 @@ export const renderBitmapShortDebug = async (
   return { width, height, rgba, shorts, legend };
 };
 
-export const findBitmapShorts = async (
-  circuitJson: AnyCircuitElement[],
-  options: FindBitmapShortsOptions = {},
-): Promise<BitmapShort[]> =>
-  (await renderBitmapShortDebug(circuitJson, options)).shorts;
+export const createBitmapShortDetector = (
+  gerberSupport?: GerberBitmapSupport,
+) => {
+  const renderBitmapShortDebug = (
+    circuitJson: AnyCircuitElement[],
+    options: FindBitmapShortsOptions = {},
+  ): Promise<BitmapShortDebugRender> =>
+    renderBitmapShortDebugWithGerberSupport(
+      circuitJson,
+      options,
+      gerberSupport,
+    );
+
+  const findBitmapShorts = async (
+    circuitJson: AnyCircuitElement[],
+    options: FindBitmapShortsOptions = {},
+  ): Promise<BitmapShort[]> =>
+    (await renderBitmapShortDebug(circuitJson, options)).shorts;
+
+  return { renderBitmapShortDebug, findBitmapShorts };
+};
