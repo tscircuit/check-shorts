@@ -9,6 +9,7 @@ import {
   renderBitmapShortDebug,
 } from "lib/index";
 import { renderSvgToPng } from "lib/svg-to-png";
+import { createAlphabetTextSvg } from "lib/png";
 import type {
   BitmapShort,
   BitmapShortDebugRender,
@@ -129,3 +130,38 @@ export const writeOrCompareBitmapDebugSnapshot = async (
 
   return debugRender.shorts;
 };
+
+// Both modes rasterize the same top-layer input. Embed the original RGBA pixels
+// at 1:1 scale so a change in the pad angle or short marker is visible.
+export async function comparePcbAndGerberShorts(
+  testPath: string,
+  suffix: string,
+  circuitJson: AnyCircuitElement[],
+  title: string,
+) {
+  const options = { layer: "top" as const, width: 320, height: 320 };
+  const pcb = await renderBitmapShortDebug(circuitJson, {
+    ...options,
+    mode: "pcb",
+  });
+  const gerber = await renderBitmapShortDebug(circuitJson, {
+    ...options,
+    mode: "gerber",
+  });
+  const panel = (label: string, render: BitmapShortDebugRender, x: number) => {
+    const count = render.shorts.length;
+    const caption = `${label} - ${count} ${count === 1 ? "short" : "shorts"}`;
+    const image = Buffer.from(encodeRgbaPng(render)).toString("base64");
+    return `${createAlphabetTextSvg({ text: caption, x: x + 10, top: 47, size: 17 })}
+      <image x="${x}" y="74" width="320" height="320" href="data:image/png;base64,${image}"/>`;
+  };
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="648" height="431">
+    <rect width="100%" height="100%" fill="white"/>
+    ${createAlphabetTextSvg({ text: title, x: 10, top: 10, size: 21 })}
+    ${panel("PCB copper", pcb, 0)}
+    ${panel("Gerber checker", gerber, 328)}
+    ${createAlphabetTextSvg({ text: "Salmon = pad    Blue = via    Pink ring = detected short", x: 10, top: 405, size: 16, maxWidth: 628 })}
+  </svg>`;
+  await writeOrCompareBinarySnapshot(testPath, suffix, renderSvgToPng(svg));
+  return { pcb: pcb.shorts.length, gerber: gerber.shorts.length };
+}
