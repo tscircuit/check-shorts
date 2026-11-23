@@ -81,7 +81,7 @@ test("downstream TypeScript consumers can statically import package exports", ()
   writeFileSync(
     join(consumerRoot, "index.ts"),
     [
-      'import { createShortDebugSvg, renderBitmapShortDebug } from "@tscircuit/check-shorts";',
+      'import { createShortDebugSvg, renderBitmapShortDebug, findBitmapOpens } from "@tscircuit/check-shorts";',
       'import type { BitmapShort, BitmapShortDebugRender, FindBitmapShortsOptions } from "@tscircuit/check-shorts";',
       "",
       "const shorts: BitmapShort[] = [];",
@@ -93,6 +93,8 @@ test("downstream TypeScript consumers can statically import package exports", ()
       "void render;",
       "void svg;",
       "void renderDebug;",
+      "const opens = findBitmapOpens([], options);",
+      "void opens;",
     ].join("\n"),
   );
 

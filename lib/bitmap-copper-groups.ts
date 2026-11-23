@@ -137,7 +137,7 @@ export const buildConnectivityGroups = ({
   return groups;
 };
 
-const getCopperElementLabel = (
+export const getCopperElementLabel = (
   element: CopperElement,
   db: ReturnType<typeof cju>,
 ): string => {
