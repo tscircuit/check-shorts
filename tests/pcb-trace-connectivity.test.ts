@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { AnyCircuitElement } from "circuit-json";
+import { cju } from "@tscircuit/circuit-json-util";
 import { findBitmapShorts } from "../lib";
 
 const circuitJson = [
@@ -54,13 +55,10 @@ for (const mode of ["pcb", "gerber"] as const) {
   });
 
   test(`${mode}: a via endpoint cannot supply a trace's missing source owner`, async () => {
-    const unidentified = structuredClone(circuitJson);
-    const trace = unidentified.filter(
-      (element) => element.type === "pcb_trace",
-    )[0];
-    delete trace.source_trace_id;
+    const db = cju(structuredClone(circuitJson));
+    db.pcb_trace.update("bottom_trace", { source_trace_id: undefined });
     expect(
-      (await findBitmapShorts(unidentified, options)).length,
+      (await findBitmapShorts(db.toArray(), options)).length,
     ).toBeGreaterThan(0);
   });
 }

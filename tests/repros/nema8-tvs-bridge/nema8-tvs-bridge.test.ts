@@ -25,9 +25,9 @@ test("fixture is the byte-for-byte published v1.0.48 Circuit JSON", () => {
 test("the map keeps intended nets separate despite the VM route ending on GND", () => {
   const circuitJson = getNema8Controller();
   const db = cju(circuitJson);
-  const trace = db.pcb_trace
-    .list()
-    .find((candidate) => candidate.source_trace_id === VM_SOURCE_TRACE_ID)!;
+  const trace = db.pcb_trace.getWhere({
+    source_trace_id: VM_SOURCE_TRACE_ID,
+  })!;
   expect(trace.route.at(-1)).toEqual({
     route_type: "wire",
     x: 1.8691600000000002,
