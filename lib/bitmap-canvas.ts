@@ -127,8 +127,13 @@ export class BitmapCanvasContext {
     radius: number,
     startAngle: number,
     endAngle: number,
+    counterclockwise = false,
   ): void {
-    const fullCircle = Math.abs(endAngle - startAngle) >= Math.PI * 2 - 1e-6;
+    const tau = Math.PI * 2;
+    let angleSpan = endAngle - startAngle;
+    const fullCircle = counterclockwise
+      ? angleSpan <= -tau + 1e-6
+      : angleSpan >= tau - 1e-6;
     const center = transformPoint(this.transform, { x, y });
     const scaledRadius =
       radius * Math.hypot(this.transform.a, this.transform.b);
@@ -143,10 +148,14 @@ export class BitmapCanvasContext {
       return;
     }
 
+    angleSpan %= tau;
+    if (!counterclockwise && angleSpan < 0) angleSpan += tau;
+    if (counterclockwise && angleSpan > 0) angleSpan -= tau;
+
     if (!this.currentPolygon) this.currentPolygon = [];
-    const steps = Math.max(8, Math.ceil(Math.abs(endAngle - startAngle) / 0.2));
+    const steps = Math.max(8, Math.ceil(Math.abs(angleSpan) / 0.2));
     for (let i = 0; i <= steps; i++) {
-      const t = startAngle + ((endAngle - startAngle) * i) / steps;
+      const t = startAngle + (angleSpan * i) / steps;
       this.currentPolygon.push(
         transformPoint(this.transform, {
           x: x + Math.cos(t) * radius,
